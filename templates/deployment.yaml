@@ -51,6 +51,7 @@ spec:
       containers:
         - name: {{ include "..fullname" . }}-proxy
           image: nginx
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: nginx-http
               containerPort: {{ .Values.service.port }}

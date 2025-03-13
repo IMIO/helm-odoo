@@ -11,6 +11,9 @@ replicaCount: 1
 
 image:
   repository: odoo
+  # Pull policy can be set to Always, IfNotPresent, or Never
+  # ref: https://kubernetes.io/docs/concepts/containers/images/#updating-images
+  # Will set the policy for Odoo and Nginx
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: "16.0"
