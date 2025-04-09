@@ -158,11 +158,14 @@ spec:
         volumeMounts:
         - name: {{ include "..fullname" . }}-config-volume
           mountPath: /usr/share/nginx/html/maintenance/
-        - name: {{ include "..fullname" . }}-config-volume
+        - name: {{ include "..fullname" . }}-default-config-volume
           mountPath: /etc/nginx/conf.d/default.conf
           subPath: default.conf
       volumes:
         - name: {{ include "..fullname" . }}-config-volume
           configMap:
             name: {{ include "..fullname" . }}-maintenance-page
+        - name: {{ include "..fullname" . }}-default-config-volume
+          configMap:
+            name: {{ include "..fullname" . }}-default-conf
 {{- end }}
