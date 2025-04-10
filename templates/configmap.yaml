@@ -96,7 +96,7 @@ data:
     
         <meta charset="utf-8">
     
-        <title> Oups! Notre site internet est temporairement indisponible. Veuillez réessayer plus tard.</title>
+        <title>Site en maintenance</title>
     
     </head>
     
@@ -337,13 +337,11 @@ data:
             <div class="main__wrapper wrapper">
     
                 <p class="maint-icon">🚧</p>
-                <h1 class="main__title">L'application iA.Vision est en cours de maintenance planifiée.</h1>
+                <h1 class="main__title">L'application {{ .Release.Name }} est en cours de maintenance planifiée.</h1>
                 <h3 class="main__subtitle">
-                    Nos équipes travaillent actuellement à son amélioration afin de vous offrir une meilleure expérience. Le
-                    service sera de nouveau disponible sous peu.<br>
+                    Nos équipes travaillent actuellement à son amélioration afin de vous offrir une meilleure expérience.<br>
+                    {{ .Values.maintenance.signature }}
                 </h3>
-                <!-- <h4 class="main__subtitle2">Code erreur 503 - Erreur Apache</h4> -->
-                <!-- <span class="infoUrl-txt" id="infoUrl"></span> -->
             </div>
         </main>
     

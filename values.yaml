@@ -4,7 +4,7 @@
 
 # Enable maintenance mode
 maintenance:
-  enabled: true
+  enabled: false
   signature: ""
 
 replicaCount: 1
