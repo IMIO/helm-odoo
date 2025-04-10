@@ -30,7 +30,7 @@ postgresql:
   ## If true, install the Postgresql chart
   ## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
   ## If false, use an external postgresql database
-  enabled: false
+  enabled: true
   auth:
     # Database name should be set as false if you are using a multi-tenant setup
     # In this case, we are using the dbfilter option in the odoo section
