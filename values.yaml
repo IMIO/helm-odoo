@@ -5,7 +5,16 @@
 # Enable maintenance mode
 maintenance:
   enabled: false
+  ## You can add a signature to the maintenance page
+  ## If you are using customTemplate, you can call the signature in your configmap with
+  ## {{ .Values.maintenance.signature }}
   signature: ""
+  customTemplate:
+    ## Name of the configmap containing the custom template
+    name: ""
+    ## Name of the key in the configmap containing the custom template
+    ## Must end with its extension (.html, .txt, etc.)
+    htmlKey: ""
 
 replicaCount: 1
 

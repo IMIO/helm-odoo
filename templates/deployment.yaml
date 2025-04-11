@@ -164,7 +164,11 @@ spec:
       volumes:
         - name: {{ include "..fullname" . }}-config-volume
           configMap:
+            {{- if ne .Values.maintenance.customTemplate.name "" }}
+            name: {{ .Values.maintenance.customTemplate.name }}
+            {{- else }}
             name: {{ include "..fullname" . }}-maintenance-page
+            {{- end }}
         - name: {{ include "..fullname" . }}-default-config-volume
           configMap:
             name: {{ include "..fullname" . }}-default-conf

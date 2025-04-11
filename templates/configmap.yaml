@@ -59,7 +59,7 @@ data:
       server_name  _ ;
 
       location / {
-        if (-f /usr/share/nginx/html/maintenance/maintenance.html) {
+        if (-f /usr/share/nginx/html/maintenance/{{ .Values.maintenance.customTemplate.htmlKey | default "maintenance.html" }}) {
           return 503;
         }
       }
@@ -68,7 +68,7 @@ data:
       error_page 503 @maintenance;
       location @maintenance {
         root    /usr/share/nginx/html/maintenance/;
-        rewrite ^(.*)$ /maintenance.html break;
+        rewrite ^(.*)$ /{{ .Values.maintenance.customTemplate.htmlKey | default "maintenance.html" }} break;
       }
       
       # allow images and css to be retrieved
@@ -76,7 +76,7 @@ data:
         root /usr/share/nginx/html/maintenance/;
       }
     }
-{{- if .Values.maintenance.customTemplate }}
+{{- if ne .Values.maintenance.customTemplate.name "" }}
 {{- else }}
 ---
 apiVersion: v1
@@ -322,14 +322,6 @@ data:
         </div>
         <header class="header">
             <div class="header__container wrapper">
-    
-                <!-- <a class="header__container__link" href="">
-    
-                    <img class="header__container__link__img" alt="logo-belleville" src="Media/bellevue.svg" />
-    
-                </a> -->
-                <!-- <h3 class="header__container__title"> Commune de Belleville</h3> -->
-    
             </div>
         </header>
     
@@ -374,10 +366,6 @@ data:
                 </g>
             </svg>
         </div>
-        <!-- <footer class="footer">
-    
-        </footer> -->
-        <!-- <a class="footer__link" href="mailto:support-web@imio.be">support-web@imio.be </a>s -->
         <script>
             const currentUrl = window.location.href;
             const infoUrl = document.getElementById('infoUrl');
@@ -388,6 +376,4 @@ data:
     </html>
     
     </html>
-  maintenance.css: |-
-    /* CSS GOES HERE */    
 {{- end }}
