@@ -9,6 +9,7 @@ maintenance:
   ## If you are using customTemplate, you can call the signature in your configmap with
   ## {{ .Values.maintenance.signature }}
   signature: ""
+  name: "Odoo"
   customTemplate:
     ## Name of the configmap containing the custom template
     name: ""
