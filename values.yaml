@@ -23,7 +23,6 @@ image:
   repository: odoo
   # Pull policy can be set to Always, IfNotPresent, or Never
   # ref: https://kubernetes.io/docs/concepts/containers/images/#updating-images
-  # Will set the policy for Odoo and Nginx
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: "16.0"
@@ -146,7 +145,7 @@ securityContext:
 
 service:
   type: ClusterIP
-  port: 80
+  port: 8069
 
 ingress:
   enabled: false
@@ -155,6 +154,15 @@ ingress:
     cert-manager.io/cluster-issuer: letsencrypt
     nginx.ingress.kubernetes.io/backend-protocol: HTTP
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header X-Forwarded-Host $http_host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Real-IP $remote_addr;
   hosts:
     - host: odoo.example.com
       paths:
