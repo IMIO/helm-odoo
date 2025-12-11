@@ -2,15 +2,15 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "..fullname" . }}-nginx
+  name: {{ include "..fullname" . }}
   labels:
     {{- include "..labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - name: nginx-http
+    - name: odoo-http
       port: {{ .Values.service.port }}
-      targetPort: nginx-http
+      targetPort: odoo-http
       protocol: TCP
   selector:
     {{- include "..selectorLabels" . | nindent 4 }}

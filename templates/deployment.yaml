@@ -49,17 +49,6 @@ spec:
         - name: {{ .Values.image.pullSecret }}
       {{- end }}
       containers:
-        - name: {{ include "..fullname" . }}-proxy
-          image: nginx
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: nginx-http
-              containerPort: {{ .Values.service.port }}
-              protocol: TCP
-          volumeMounts:
-            - name: {{ include "..fullname" . }}-nginx-conf
-              mountPath: /etc/nginx/conf.d/default.conf
-              subPath: nginx.conf
         - name: {{ include "..fullname" . }}-service
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
       {{- if .Values.odoo.update.enabled }}
@@ -97,9 +86,6 @@ spec:
           startupProbe:
             {{- toYaml .Values.startupProbe | nindent 12 }}
       volumes:
-        - name: {{ include "..fullname" . }}-nginx-conf
-          configMap:
-            name: "{{ include "..fullname" . }}-nginx-conf"
         - name: {{ include "..fullname" . }}-odoo-conf
           secret:
             secretName: "{{ include "..fullname" . }}-odoo-conf"

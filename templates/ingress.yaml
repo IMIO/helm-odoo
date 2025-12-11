@@ -41,7 +41,7 @@ spec:
                 port:
                   number: 80
                 {{- else }}
-                name: {{ $fullName }}-nginx
+                name: {{ $fullName }}
                 port:
                   number: {{ $svcPort }}
                 {{- end}}
