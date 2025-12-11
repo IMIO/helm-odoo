@@ -59,7 +59,7 @@ helm upgrade odoo . -f values.yaml --namespace odoo --create-namespace --install
 
 ## Configuration
 
-The following table lists the configurable parameters of the plausible-analytics chart and the default values.
+The following table lists the configurable parameters of the helm-odoo chart and the default values.
 
 See the [values.yaml](values.yaml) file for more information.
 
