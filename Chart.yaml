@@ -3,7 +3,7 @@ apiVersion: v2
 name: odoo
 description: An opiniated Helm Chart for deploying Odoo
 type: application
-version: 0.2.7
+version: 0.2.8
 appVersion: "16.0"
 sources:
   - https://github.com/odoo/odoo

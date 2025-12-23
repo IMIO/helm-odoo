@@ -25,7 +25,7 @@ image:
   repository: odoo
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "16.0"
+  tag: "19.0"
   ## Optionally specify an imagePullSecret.
   ## Secret must be manually created in the namespace.
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
@@ -178,8 +178,8 @@ autoscaling:
 livenessProbe:
   httpGet:
     port: odoo-http
-    path: /
-  initialDelaySeconds: 300
+    path: /web/health
+  initialDelaySeconds: 90
   periodSeconds: 30
   timeoutSeconds: 5
   failureThreshold: 6
