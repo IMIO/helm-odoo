@@ -85,4 +85,4 @@ Bundled PostgreSQL (bitnami chart, OCI registry) is optional and controlled by `
 - **Push / PR**: Runs `helm lint` + test via `IMIO/gha/helm-test-notify@v6`
 - **Release**: Triggered on successful test on tag; publishes to `https://imio.github.io/helm-charts` via `IMIO/gha/helm-release-notify@v6`
 
-Chart version in `Chart.yaml` must be bumped to trigger a release. The release workflow builds dependencies (bitnami) and packages the chart automatically.
+Before creating and pushing a git tag, ensure `version` in `Chart.yaml` matches the tag. The release workflow is triggered by tag pushes and builds dependencies (bitnami) and packages the chart automatically.
