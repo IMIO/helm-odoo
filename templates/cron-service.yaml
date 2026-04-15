@@ -1,0 +1,20 @@
+{{- if .Values.cron.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "..fullname" . }}-cron
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+    app.kubernetes.io/component: cron
+spec:
+  type: ClusterIP
+  ports:
+    - name: odoo-http
+      port: 8069
+      targetPort: odoo-http
+      protocol: TCP
+  selector:
+    {{- include "..selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: cron
+{{- end }}

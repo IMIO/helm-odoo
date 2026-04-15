@@ -1,0 +1,93 @@
+{{- if .Values.cron.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "..fullname" . }}-cron
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+    app.kubernetes.io/component: cron
+spec:
+  replicas: {{ .Values.cron.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "..selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: cron
+  strategy:
+    type: {{ .Values.cron.strategy }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.externalsecrets.enabled }}
+        checksum/secret: {{ include (print $.Template.BasePath "/externalsecrets.yaml") . | sha256sum }}
+        {{- else }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+        {{- end }}
+      labels:
+        {{- include "..selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: cron
+    spec:
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      {{- if .Values.image.pullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.image.pullSecret }}
+      {{- end }}
+      containers:
+        - name: {{ include "..fullname" . }}-cron
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --max-cron-threads={{ .Values.cron.max_cron_threads }}
+            - --workers={{ .Values.cron.workers }}
+          ports:
+            - name: odoo-http
+              containerPort: 8069
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.cron.resources | nindent 12 }}
+          volumeMounts:
+            - name: {{ include "..fullname" . }}-odoo-conf
+              mountPath: /etc/odoo/odoo.conf
+              subPath: odoo.conf
+              readOnly: true
+            - name: {{ include "..fullname" . }}-odoo-data
+              mountPath: /var/lib/odoo
+          {{- if .Values.cron.extraEnv }}
+          env:
+            {{- toYaml .Values.cron.extraEnv | nindent 12 }}
+          {{- end }}
+          {{- if .Values.cron.extraEnvFrom }}
+          envFrom:
+            {{- toYaml .Values.cron.extraEnvFrom | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.cron.livenessProbe | nindent 12 }}
+      volumes:
+        - name: {{ include "..fullname" . }}-odoo-conf
+          secret:
+            secretName: "{{ include "..fullname" . }}-odoo-conf"
+        - name: {{ include "..fullname" . }}-odoo-data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            {{- if .Values.persistence.existingClaim }}
+            claimName: {{ .Values.persistence.existingClaim }}
+            {{- else }}
+            claimName: {{ include "..fullname" . }}-odoo-data
+            {{- end }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
