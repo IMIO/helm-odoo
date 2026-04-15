@@ -94,6 +94,8 @@ odoo:
   # db_name should be False if you are using a multi-tenant setup
   db_name: odoo
   db_maxconn: 64
+  db_replica_host: ""
+  db_replica_port: 5432
   log_level: info
   log_handler: ":INFO"
 
