@@ -20,3 +20,8 @@
   echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
 {{- end }}
+{{- if and .Values.cron.enabled (or .Values.existingSecret.enabled .Values.externalsecrets.enabled) }}
+
+WARNING: cron.enabled=true but you are using an externally-managed secret.
+Make sure your odoo.conf contains "max_cron_threads = 0" to disable cron on the main instance.
+{{- end }}
