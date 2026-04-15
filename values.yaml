@@ -96,6 +96,7 @@ odoo:
   db_maxconn: 64
   db_replica_host: ""
   db_replica_port: 5432
+  # Number of cron threads on the main Odoo instance (set to 0 automatically when cron.enabled is true)
   max_cron_threads: 2
   log_level: info
   log_handler: ":INFO"
@@ -105,6 +106,7 @@ cron:
   replicaCount: 1
   # Recreate prevents two cron instances running simultaneously during updates
   strategy: Recreate
+  # Number of cron threads on the dedicated cron deployment
   max_cron_threads: 2
   workers: 2
   resources: {}
