@@ -2,14 +2,9 @@
 name: Helm Release
 
 on:
-  workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Lint and Test Charts
-    types:
-      - completed
-    branches:
-      - main
+  push:
+    tags:
+      - '*'
 
 jobs:
   release:
@@ -19,7 +14,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Helm Release
-        uses: IMIO/gha/helm-release-notify@v4
+        uses: IMIO/gha/helm-release-notify@v6
         with:
           TARGET_DIR: odoo
           MATTERMOST_WEBHOOK_URL: ${{ secrets.COMMON_MATTERMOST_WEBHOOK_URL }}
