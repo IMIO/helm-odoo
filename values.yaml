@@ -96,8 +96,29 @@ odoo:
   db_maxconn: 64
   db_replica_host: ""
   db_replica_port: 5432
+  max_cron_threads: 2
   log_level: info
   log_handler: ":INFO"
+
+cron:
+  enabled: false
+  replicaCount: 1
+  # Recreate prevents two cron instances running simultaneously during updates
+  strategy: Recreate
+  max_cron_threads: 2
+  workers: 2
+  resources: {}
+  extraEnv: []
+  extraEnvFrom: []
+  livenessProbe:
+    httpGet:
+      port: odoo-http
+      path: /web/health
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
 
 # Use an existing secret for the Odoo configuration instead of generating one
 existingSecret:
