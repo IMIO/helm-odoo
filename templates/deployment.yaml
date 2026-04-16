@@ -51,12 +51,18 @@ spec:
       {{- end }}
       containers:
         - name: {{ include "..fullname" . }}-proxy
-          image: nginx
+          image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: nginx-http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.nginx.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.nginx.readinessProbe | nindent 12 }}
           volumeMounts:
             - name: {{ include "..fullname" . }}-nginx-conf
               mountPath: /etc/nginx/conf.d/default.conf
@@ -153,7 +159,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:1.25
+        image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
         ports:
         - name: maint-http
           containerPort: 80
