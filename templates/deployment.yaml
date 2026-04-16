@@ -30,6 +30,7 @@ spec:
       {{- end }}
       labels:
         {{- include "..selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: server
     spec:
       securityContext:
         {{- toYaml .Values.securityContext | nindent 8 }}
@@ -94,8 +95,10 @@ spec:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- if .Values.startupProbe }}
           startupProbe:
             {{- toYaml .Values.startupProbe | nindent 12 }}
+          {{- end }}
       volumes:
         - name: {{ include "..fullname" . }}-nginx-conf
           configMap:

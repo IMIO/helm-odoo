@@ -18,6 +18,7 @@ spec:
   template:
     metadata:
       annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         {{- if .Values.externalsecrets.enabled }}
         checksum/secret: {{ include (print $.Template.BasePath "/externalsecrets.yaml") . | sha256sum }}
         {{- else }}
