@@ -15,7 +15,7 @@ This [Helm](https://helm.sh/) chart installs `Odoo` in a [Kubernetes](https://ku
 > [!NOTE]
 > For production environments, it is recommended to use [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg) for PostgreSQL. The bundled chart is primarily intended for testing and development purposes. Be also aware of the upcoming changes to the bitnami catalog described in this [issue](https://github.com/bitnami/containers/issues/83267). 
 
-- Kubernetes cluster 1.18+
+- Kubernetes cluster 1.25+
 - Helm 3.8.0+
 - PV provisioner support in the underlying infrastructure.
 - Postgres DB (This chart can install a postgresql database based on the bitnami/postgresql chart). We use it for testing purposes.
