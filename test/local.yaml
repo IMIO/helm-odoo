@@ -3,60 +3,44 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-# Enable maintenance mode
-maintenance:
-  enabled: false
-  ## You can add a signature to the maintenance page
-  ## If you are using customTemplate, you can call the signature in your configmap with
-  ## {{ .Values.maintenance.signature }}
-  signature: ""
-  name: "Odoo"
-  customTemplate:
-    ## Name of the configmap containing the custom template
-    name: ""
-    ## Name of the key in the configmap containing the custom template
-    ## Must end with its extension (.html, .txt, etc.)
-    htmlKey: ""
-
-
 replicaCount: 1
 
 image:
   repository: odoo
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
   tag: "19.0"
+  pullPolicy: IfNotPresent
   ## Optionally specify an imagePullSecret.
   ## Secret must be manually created in the namespace.
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-  # pullSecret: 
+  # pullSecret:
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
 deployment:
   strategy: Recreate
 
-postgresql:
-  ## If true, install the Postgresql chart
-  ## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
-  ## If false, use an external postgresql database
-  enabled: true
-  auth:
-    # Seems hardcoded: https://github.com/odoo/docker/blob/master/16.0/wait-for-psql.py#L21C5-L21C5
-    # Database name should be false if you are using a multi-tenant setup
-    # In this case, we are using the dbfilter option in the odoo section
-    database: odoo
-    username: odoo
-    password: mySecuredPassword
-    admin_password: mySecuredPassword
-    existingSecret: odoo-postgresql-secret
-    secretKeys:
-      adminPasswordKey: postgresql-admin-password
-      userPasswordKey: postgresql-password
-  ## host of the external postgresql database
-  # external : "10.7.121.11"
-  host: "odoo-postgresql"
-  port: 5432
-  primary:
-    persistence:
-      enabled: false
+nginx:
+  image:
+    repository: nginx
+    tag: "1.29.8-alpine"
+    ## Optionally specify an imagePullSecret.
+    ## Secret must be manually created in the namespace.
+    ## pullSecret:
+  resources: {}
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 10
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 5
+    periodSeconds: 10
 
 odoo:
   init:
@@ -80,11 +64,7 @@ odoo:
   smtp_server: ""
   load_language: en_US
   without_demo: all
-  # dbfilter is used to filter the databases that the user can see in a multi-tenant setup
-  # dbfilter should be false if you are not using a multi-tenant setup
-  # and you need to setup the postgresql.auth.database to the name of the database.
   dbfilter: false
-  # db_name should be False if you are using a multi-tenant setup
   db_name: odoo
   db_maxconn: 64
   db_replica_host: ""
@@ -112,6 +92,31 @@ cron:
     failureThreshold: 6
     successThreshold: 1
 
+postgresql:
+  ## If true, install the Postgresql chart
+  ## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
+  ## If false, use an external postgresql database
+  enabled: true
+  auth:
+    # Seems hardcoded: https://github.com/odoo/docker/blob/master/16.0/wait-for-psql.py#L21C5-L21C5
+    # Database name should be false if you are using a multi-tenant setup
+    # In this case, we are using the dbfilter option in the odoo section
+    database: odoo
+    username: odoo
+    password: mySecuredPassword
+    admin_password: mySecuredPassword
+    existingSecret: odoo-postgresql-secret
+    secretKeys:
+      adminPasswordKey: postgresql-admin-password
+      userPasswordKey: postgresql-password
+  ## host of the external postgresql database
+  # external: "10.7.121.11"
+  host: "odoo-postgresql"
+  port: 5432
+  primary:
+    persistence:
+      enabled: false
+
 # Use an existing secret for the Odoo configuration instead of generating one
 existingSecret:
   enabled: false
@@ -129,30 +134,6 @@ persistence:
   accessMode: ReadWriteOnce
   storageClass: "standard"
   size: 5Gi
-
-extraEnv:
-  - name: "TEST"
-    value: "test"
-
-imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: ""
-
-podAnnotations: {}
-
-podSecurityContext: {}
-  # fsGroup: 2000
-
-statefulSetSecurityAnnotations: {}
-
-securityContext: 
-  fsGroup: 101
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
 
 service:
   type: ClusterIP
@@ -176,10 +157,6 @@ ingress:
         - odoo.local
 
 resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
   # limits:
   #   cpu: 100m
   #   memory: 128Mi
@@ -187,16 +164,8 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
-
-## Configure options for Odoo containers' liveness and readiness probes
+## Configure liveness and readiness probes for the Odoo container
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
-
 livenessProbe:
   httpGet:
     port: odoo-http
@@ -217,16 +186,52 @@ readinessProbe:
   failureThreshold: 6
   successThreshold: 1
 
-#startupProbe:
-#  path: /web/health
-#  initialDelaySeconds: 300
-#  periodSeconds: 10
-#  timeoutSeconds: 5
-#  failureThreshold: 6
-#  successThreshold: 1
+# startupProbe:
+#   path: /web/health
+#   initialDelaySeconds: 300
+#   periodSeconds: 10
+#   timeoutSeconds: 5
+#   failureThreshold: 6
+#   successThreshold: 1
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+extraEnv:
+  - name: "TEST"
+    value: "test"
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+statefulSetSecurityAnnotations: {}
+
+securityContext:
+  fsGroup: 101
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
 
 nodeSelector: {}
 
 tolerations: []
 
 affinity: {}
+
+# Enable maintenance mode
+maintenance:
+  enabled: false
+  signature: ""
+  name: "Odoo"
+  customTemplate:
+    name: ""
+    htmlKey: ""
