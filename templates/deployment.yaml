@@ -157,6 +157,10 @@ spec:
       labels:
         {{- include "..selectorLabels" . | nindent 8 }}
     spec:
+      {{- if .Values.nginx.image.pullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.nginx.image.pullSecret }}
+      {{- end }}
       containers:
       - name: nginx
         image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"

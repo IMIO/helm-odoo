@@ -25,6 +25,9 @@ nginx:
   image:
     repository: nginx
     tag: "1.29.8-alpine"
+    ## Optionally specify an imagePullSecret.
+    ## Secret must be manually created in the namespace.
+    ## pullSecret:
   resources: {}
   livenessProbe:
     httpGet:
