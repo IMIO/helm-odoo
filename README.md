@@ -8,7 +8,7 @@ This [Helm](https://helm.sh/) chart installs `Odoo` in a [Kubernetes](https://ku
 
 > [!IMPORTANT]
 > This helm chart is designed for @IMIO specific needs and is not intended to resolve all use cases. But we are open to contributions and suggestions to improve this helm chart.
-> This Helm chart runs Odoo version 16.0 and has also been tested with later versions. It may not work with earlier versions.
+> This Helm chart targets Odoo 16.0+ using the official Odoo Docker image. The default image tag is `18.0`; override with `image.tag` as needed.
 
 ## Prerequisites
 
@@ -51,8 +51,6 @@ or by cloning this repository:
 ```bash
 git clone https://github.com/imio/helm-odoo.git
 cd helm-odoo
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
 helm dep up
 helm upgrade odoo . -f values.yaml --namespace odoo --create-namespace --install
 ```
@@ -68,14 +66,20 @@ See the [values.yaml](values.yaml) file for more information.
 You can use an existing secret for the Odoo configuration.
 
 In the `values.yaml` file, set the `existingSecret.enabled` parameter to `true`.
-Then, you need to have a Secret in your namespace with the following name: `your-release-name`-odoo-odoo-conf
-Or if you set the `fullnameOverride` parameter, the Secret name will be `fullnameOverride`-odoo-conf.
+Then, create a Secret in your namespace named `<release-name>-odoo-conf`
+(or `<fullnameOverride>-odoo-conf` if `fullnameOverride` is set), containing
+the `odoo.conf` key.
 
-### Use external-secret.io for Odoo configuration
+### Use external-secrets.io for Odoo configuration
 
 In the `values.yaml` file, set the `externalsecrets.enabled` parameter to `true`.
 
-You need to have the external-secret.io operator installed in your cluster. See the [external-secrets.io](documentation] for more information.
+You need to have the external-secrets.io operator installed in your cluster. See the [external-secrets.io documentation](https://external-secrets.io/latest/) for more information.
+
+> [!WARNING]
+> `existingSecret.enabled` and `externalsecrets.enabled` are mutually exclusive.
+> Enabling both will cause `helm install`/`helm upgrade` to fail with an explicit error.
+> Choose exactly one secret backend, or leave both disabled to have the chart generate secrets from `values.yaml`.
 
 ## Local Setup for development
 

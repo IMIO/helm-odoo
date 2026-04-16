@@ -8,7 +8,7 @@ replicaCount: 1
 image:
   repository: odoo
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "19.0"
+  tag: "18.0"
   # Pull policy can be set to Always, IfNotPresent, or Never
   # ref: https://kubernetes.io/docs/concepts/containers/images/#updating-images
   pullPolicy: IfNotPresent
