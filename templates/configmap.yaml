@@ -24,7 +24,12 @@ data:
       proxy_set_header X-Forwarded-SSL on;
       proxy_set_header X-Forwarded-Protocol ssl;
       proxy_set_header X-Forwarded-Proto https;
-    
+
+      location = /healthz {
+        access_log off;
+        return 200 "ok";
+      }
+
       location /websocket {
         proxy_pass http://odoochat;
         proxy_set_header Upgrade $http_upgrade;
