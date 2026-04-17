@@ -62,7 +62,7 @@ When `maintenance.enabled: true`, the chart:
 
 ### Health Checks
 
-Both liveness and readiness probes hit `/web/health` on the Odoo HTTP port. Liveness has a 120s initial delay; readiness has 30s.
+Both liveness and readiness probes for Odoo hit `/web/health` on the Odoo HTTP port. Liveness has a 120s initial delay; readiness has 30s. The Nginx sidecar probes hit `/healthz` on port 80, which returns 200 directly without proxying to Odoo.
 
 ### PostgreSQL
 

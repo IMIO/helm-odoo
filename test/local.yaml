@@ -31,13 +31,13 @@ nginx:
   resources: {}
   livenessProbe:
     httpGet:
-      path: /
+      path: /healthz
       port: 80
     initialDelaySeconds: 10
     periodSeconds: 30
   readinessProbe:
     httpGet:
-      path: /
+      path: /healthz
       port: 80
     initialDelaySeconds: 5
     periodSeconds: 10
