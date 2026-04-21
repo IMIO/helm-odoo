@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Helm Release
-        uses: IMIO/gha/helm-release-notify@v6
+        uses: IMIO/gha/helm-release-notify@v7
         with:
           TARGET_DIR: odoo
           MATTERMOST_WEBHOOK_URL: ${{ secrets.COMMON_MATTERMOST_WEBHOOK_URL }}
