@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Lint and Test Charts
-        uses: IMIO/gha/helm-test-notify@v6
+        uses: IMIO/gha/helm-test-notify@rework/mattermost-notifications
         with:
           HELM_RELEASE: odoo
           HELM_NAMESPACE: odoo
