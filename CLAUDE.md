@@ -57,6 +57,7 @@ Nginx configuration is in a ConfigMap (`templates/configmap.yaml`).
 
 When `maintenance.enabled: true`, the chart:
 - Scales the main Odoo deployment to 0 replicas
+- Scales the cron deployment to 0 replicas (so scheduled actions don't write to the DB during migrations/restores)
 - Deploys a maintenance page (custom HTML or default)
 - Redirects Ingress traffic to the maintenance service
 

@@ -8,7 +8,11 @@ metadata:
     {{- include "..labels" . | nindent 4 }}
     app.kubernetes.io/component: cron
 spec:
+  {{- if .Values.maintenance.enabled }}
+  replicas: 0
+  {{- else }}
   replicas: {{ .Values.cron.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "..selectorLabels" . | nindent 6 }}
