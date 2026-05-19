@@ -205,6 +205,23 @@ extraEnv:
   - name: "TEST"
     value: "test"
 
+# Example: inject custom Odoo addons via an init container
+extraInitContainers:
+  - name: copy-addons
+    image: busybox:latest
+    command: ["sh", "-c", "echo 'placeholder for addons copy'"]
+    volumeMounts:
+      - name: extra-addons
+        mountPath: /mnt/extra-addons
+
+extraVolumes:
+  - name: extra-addons
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: extra-addons
+    mountPath: /mnt/extra-addons
+
 podAnnotations: {}
 
 podSecurityContext: {}
