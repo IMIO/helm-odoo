@@ -103,8 +103,11 @@ cron:
   resources: {}
   extraEnv: []
   extraEnvFrom: []
+  # Extra init containers to run before the cron container starts
   extraInitContainers: []
+  # Extra volumes to mount in the cron pod
   extraVolumes: []
+  # Extra volume mounts for the cron container
   extraVolumeMounts: []
   livenessProbe:
     httpGet:
