@@ -103,6 +103,12 @@ cron:
   resources: {}
   extraEnv: []
   extraEnvFrom: []
+  # Extra init containers to run before the cron container starts
+  extraInitContainers: []
+  # Extra volumes to mount in the cron pod
+  extraVolumes: []
+  # Extra volume mounts for the cron container
+  extraVolumeMounts: []
   livenessProbe:
     httpGet:
       port: odoo-http
@@ -234,6 +240,15 @@ autoscaling:
 
 # Additional environment variables from secrets or configmaps
 # extraEnvFrom:
+
+# Extra init containers
+# extraInitContainers: []
+
+# Extra volumes
+# extraVolumes: []
+
+# Extra volume mounts for the Odoo container
+# extraVolumeMounts: []
 
 podAnnotations: {}
 
