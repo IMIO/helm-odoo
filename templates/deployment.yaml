@@ -34,8 +34,9 @@ spec:
     spec:
       securityContext:
         {{- toYaml .Values.securityContext | nindent 8 }}
-      {{- if .Values.odoo.init.enabled }}
+      {{- if or .Values.odoo.init.enabled .Values.extraInitContainers }}
       initContainers:
+        {{- if .Values.odoo.init.enabled }}
         - name: init-db-odoo
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           command: ["/bin/bash", "-c", 'odoo -i {{ .Values.odoo.init.modules }} -d {{ .Values.postgresql.auth.database }} --stop-after-init']
@@ -44,6 +45,10 @@ spec:
               mountPath: /etc/odoo/odoo.conf
               subPath: odoo.conf
               readOnly: true
+        {{- end }}
+        {{- with .Values.extraInitContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       {{- if .Values.image.pullSecret }}
       imagePullSecrets:
@@ -89,6 +94,9 @@ spec:
               readOnly: true
             - name: {{ include "..fullname" . }}-odoo-data
               mountPath: /var/lib/odoo
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- if .Values.extraEnv }}
           env:
           {{- toYaml .Values.extraEnv | nindent 12 }}
@@ -123,6 +131,9 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
