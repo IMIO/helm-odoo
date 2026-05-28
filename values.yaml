@@ -236,9 +236,11 @@ autoscaling:
   # targetMemoryUtilizationPercentage: 80
 
 # Additional environment variables for the Odoo container
+# Also injected into the init-db-odoo init container when odoo.init.enabled is true
 # extraEnv:
 
 # Additional environment variables from secrets or configmaps
+# Also injected into the init-db-odoo init container when odoo.init.enabled is true
 # extraEnvFrom:
 
 # Extra init containers
