@@ -205,6 +205,10 @@ extraEnv:
   - name: "TEST"
     value: "test"
 
+extraEnvFrom:
+  - secretRef:
+      name: odoo-postgresql-secret
+
 # Example: inject custom Odoo addons via an init container
 extraInitContainers:
   - name: copy-addons
