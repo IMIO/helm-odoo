@@ -62,10 +62,43 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+Resolve Odoo's database connection from the right source:
+- bundled (postgresql.enabled): credentials come from postgresql.auth.*, the
+  host is the bundled service "<release>-postgresql" and the port is 5432.
+- external (postgresql.enabled false): credentials come from externalDatabase.*
+  ("..dbHost" fails fast if externalDatabase.host is not set).
+These take the root context (they need .Release / .Values).
+*/}}
+{{- define "..dbHost" -}}
+{{- if .Values.postgresql.enabled -}}
+{{- printf "%s-postgresql" .Release.Name -}}
+{{- else -}}
+{{- required "externalDatabase.host is required when postgresql.enabled is false" .Values.externalDatabase.host -}}
+{{- end -}}
+{{- end }}
+
+{{- define "..dbPort" -}}
+{{- if .Values.postgresql.enabled -}}5432{{- else -}}{{ .Values.externalDatabase.port }}{{- end -}}
+{{- end }}
+
+{{- define "..dbName" -}}
+{{- if .Values.postgresql.enabled -}}{{ .Values.postgresql.auth.database }}{{- else -}}{{ .Values.externalDatabase.name }}{{- end -}}
+{{- end }}
+
+{{- define "..dbUser" -}}
+{{- if .Values.postgresql.enabled -}}{{ .Values.postgresql.auth.username }}{{- else -}}{{ .Values.externalDatabase.user }}{{- end -}}
+{{- end }}
+
+{{- define "..dbPassword" -}}
+{{- if .Values.postgresql.enabled -}}{{ .Values.postgresql.auth.password }}{{- else -}}{{ .Values.externalDatabase.password }}{{- end -}}
+{{- end }}
+
+{{/*
 Generate odoo.conf content.
-Call with dict: "Values" .Values "dbPassword" <password> "adminPasswd" <passwd>
-Sensitive values are passed as parameters so both secrets.yaml and
-externalsecrets.yaml can share a single source of truth.
+Call with dict: "Values" .Values "dbHost" <host> "dbPort" <port> "dbName" <name>
+"dbUser" <user> "dbPassword" <password> "adminPasswd" <passwd>
+Connection and sensitive values are passed as parameters so both secrets.yaml
+and externalsecrets.yaml can share a single source of truth.
 */}}
 {{- define "..odooConf" -}}
 [options]
@@ -85,14 +118,14 @@ limit_request = {{ .Values.odoo.limit_request | int }}
 {{- if .Values.odoo.dbfilter }}
 dbfilter = {{ .Values.odoo.dbfilter }}
 {{- end }}
-db_host = {{ .Values.postgresql.host }}
+db_host = {{ .dbHost }}
 {{- if .Values.odoo.db_name }}
-db_name = {{ .Values.postgresql.auth.database }}
+db_name = {{ .dbName }}
 {{- else }}
 db_name = False
 {{- end }}
-db_port = {{ .Values.postgresql.port }}
-db_user = {{ .Values.postgresql.auth.username }}
+db_port = {{ .dbPort }}
+db_user = {{ .dbUser }}
 db_password = {{ .dbPassword }}
 db_maxconn = {{ .Values.odoo.db_maxconn | int }}
 {{- if .Values.odoo.db_replica_host }}
