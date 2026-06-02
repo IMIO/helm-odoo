@@ -28,13 +28,6 @@ nginx:
     ## Optionally specify an imagePullSecret.
     ## Secret must be manually created in the namespace.
     ## pullSecret:
-  # Serve the maintenance page from the sidecar whenever the Odoo upstream is
-  # unavailable (e.g. while Odoo is starting up after an update, or during a
-  # restart). When enabled, pod readiness is driven by the nginx sidecar
-  # (/healthz) and the Odoo container's readinessProbe is dropped, so the pod
-  # stays a Service endpoint while Odoo boots and nginx can show the page
-  # instead of the ingress returning a bare 503.
-  maintenanceFallback: true
   resources: {}
   livenessProbe:
     httpGet:
