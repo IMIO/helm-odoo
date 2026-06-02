@@ -61,6 +61,23 @@ The following table lists the configurable parameters of the helm-odoo chart and
 
 See the [values.yaml](values.yaml) file for more information.
 
+### Database configuration
+
+Database configuration is split into two clearly-scoped sections:
+
+- **`postgresql.*`** — configures the **bundled** bitnami PostgreSQL subchart, used
+  only when `postgresql.enabled: true` (intended for dev/test). Odoo's connection is
+  taken from `postgresql.auth.*`, the host is auto-derived as `<release-name>-postgresql`
+  and the port is `5432`. Bundled credentials can be set inline via
+  `postgresql.auth.password` / `postgresql.auth.postgresPassword`, or supplied through
+  `postgresql.auth.existingSecret` (bitnami-native).
+- **`externalDatabase.*`** — connection settings for an **external** PostgreSQL
+  (e.g. CloudNativePG), used only when `postgresql.enabled: false`. `externalDatabase.host`
+  is required in this mode (templating fails fast if it is empty).
+
+Only one section is ever read at a time, depending on `postgresql.enabled` — no key is
+shared between the bundled and external scenarios.
+
 ### Use an existing Secret for Odoo configuration
 
 You can use an existing secret for the Odoo configuration.
@@ -136,6 +153,21 @@ nano /etc/hosts
 Feel free to contribute by making a [pull request](https://github.com/imio/helm-odoo/pull/new/master).
 
 Please read the official [Helm Contribution Guide](https://github.com/helm/charts/blob/master/CONTRIBUTING.md) from Helm for more information on how you can contribute to this Chart.
+
+## Upgrading
+
+### To 1.0.0
+
+The single `postgresql:` section that previously held both the bundled-chart config and
+the database connection settings has been split into two clearly-scoped sections
+(`postgresql.*` for the bundled bitnami subchart, `externalDatabase.*` for an external
+database). Update your values as follows:
+
+- `postgresql.host` / `postgresql.port` → `externalDatabase.host` / `externalDatabase.port`
+  (the host is now auto-derived as `<release-name>-postgresql` for the bundled chart).
+- `postgresql.auth.admin_password` → `postgresql.auth.postgresPassword` (bitnami-native key).
+- External-database connection now lives under `externalDatabase.*` (read only when
+  `postgresql.enabled: false`).
 
 ## License
 

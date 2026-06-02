@@ -67,7 +67,12 @@ Both liveness and readiness probes for Odoo hit `/web/health` on the Odoo HTTP p
 
 ### PostgreSQL
 
-Bundled PostgreSQL (bitnami chart, OCI registry) is optional and controlled by `postgresql.enabled`. For production, an external PostgreSQL (e.g., CloudNativePG) is recommended. The `global.security.allowInsecureImages: true` setting is required due to the bitnami legacy repo.
+Database config is split into two clearly-scoped sections, with `postgresql.enabled` selecting which one Odoo reads:
+
+- `postgresql.*` — the **bundled** bitnami subchart (OCI registry), used when `postgresql.enabled: true` (dev/test). Odoo's connection comes from `postgresql.auth.*`, the host is auto-derived as `<release>-postgresql`, port `5432`. The `global.security.allowInsecureImages: true` setting is required due to the bitnami legacy repo. Bundled credentials are bitnami-native (inline `auth.password`/`auth.postgresPassword` or `auth.existingSecret`).
+- `externalDatabase.*` — connection settings for an **external** PostgreSQL (e.g., CloudNativePG, recommended for production), used when `postgresql.enabled: false`. `externalDatabase.host` is required in this mode.
+
+Connection resolution lives in the `..dbHost`/`..dbPort`/`..dbName`/`..dbUser`/`..dbPassword` helpers in `_helpers.tpl`, which switch source based on `postgresql.enabled`.
 
 ## Key Files
 

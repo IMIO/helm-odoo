@@ -92,27 +92,25 @@ cron:
     failureThreshold: 6
     successThreshold: 1
 
+# External DB connection — used only when postgresql.enabled is false.
+externalDatabase:
+  # host: "10.7.121.11"
+  port: 5432
+  name: odoo
+  user: odoo
+  password: mySecuredPassword
+
+# Bundled bitnami PostgreSQL for local testing.
+## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
 postgresql:
-  ## If true, install the Postgresql chart
-  ## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
-  ## If false, use an external postgresql database
   enabled: true
   auth:
-    # Seems hardcoded: https://github.com/odoo/docker/blob/master/16.0/wait-for-psql.py#L21C5-L21C5
     # Database name should be false if you are using a multi-tenant setup
     # In this case, we are using the dbfilter option in the odoo section
     database: odoo
     username: odoo
     password: mySecuredPassword
-    admin_password: mySecuredPassword
-    existingSecret: odoo-postgresql-secret
-    secretKeys:
-      adminPasswordKey: postgresql-admin-password
-      userPasswordKey: postgresql-password
-  ## host of the external postgresql database
-  # external: "10.7.121.11"
-  host: "odoo-postgresql"
-  port: 5432
+    postgresPassword: mySecuredPassword
   primary:
     persistence:
       enabled: false
@@ -206,8 +204,9 @@ extraEnv:
     value: "test"
 
 extraEnvFrom:
+  # Bundled bitnami DB self-manages this secret (<release>-postgresql)
   - secretRef:
-      name: odoo-postgresql-secret
+      name: odoo-postgresql
 
 # Example: inject custom Odoo addons via an init container
 extraInitContainers:

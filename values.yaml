@@ -119,10 +119,28 @@ cron:
     failureThreshold: 6
     successThreshold: 1
 
+# Connection settings for an EXTERNAL PostgreSQL database.
+# Used ONLY when postgresql.enabled is false. When the bundled chart is
+# enabled, connection settings come from the postgresql.* section below instead.
+externalDatabase:
+  ## Hostname of the external PostgreSQL server (e.g. a CloudNativePG service).
+  ## REQUIRED when postgresql.enabled is false.
+  host: ""
+  port: 5432
+  ## Database name. Set odoo.db_name: false for a multi-tenant (dbfilter) setup.
+  name: odoo
+  user: odoo
+  ## Password Odoo uses to connect. With the default (generated) secret backend
+  ## this is written into odoo.conf. Use existingSecret/externalsecrets to keep
+  ## it out of plaintext values.
+  password: mySecuredPassword
+
+# Bundled PostgreSQL (bitnami subchart) — intended for dev/test.
+# Set enabled: false to use an external database (configure externalDatabase above).
+# Passwords can be set inline via auth.password/auth.postgresPassword, OR supplied
+# through auth.existingSecret (bitnami-native).
+## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
 postgresql:
-  ## If true, install the Postgresql chart
-  ## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
-  ## If false, use an external postgresql database
   enabled: true
   global:
     security:
@@ -134,16 +152,16 @@ postgresql:
     # In this case, we are using the dbfilter option in the odoo section
     database: odoo
     username: odoo
-    # password: managed by a Kubernetes secret, you could use existing one
+    # password: managed by a Kubernetes secret, you could use an existing one
     password: mySecuredPassword
-    admin_password: mySecuredPassword
-    existingSecret: odoo-postgresql-secret
-    secretKeys:
-      adminPasswordKey: postgresql-admin-password
-      userPasswordKey: postgresql-password
-  ## host of the external postgresql database
-  host: "odoo-postgresql"
-  port: 5432
+    # postgresPassword is the superuser (postgres) password
+    postgresPassword: mySecuredPassword
+    # To supply credentials from an existing secret instead of the inline values
+    # above, uncomment and point at your secret:
+    # existingSecret: my-db-secret
+    # secretKeys:
+    #   adminPasswordKey: postgres-password
+    #   userPasswordKey: password
   primary:
     persistence:
       enabled: false
