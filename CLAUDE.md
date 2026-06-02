@@ -53,6 +53,16 @@ Odoo is configured via `odoo.conf` injected as a Kubernetes Secret. Three mutual
 
 Nginx configuration is in a ConfigMap (`templates/configmap.yaml`).
 
+### Database init & update (Helm hook Jobs)
+
+DB lifecycle is handled by Helm hook Jobs in `templates/hooks/`, **not** inside the main deployment (the old `init-db-odoo` initContainer and `odoo --update` command override were removed):
+
+- **Init** (`odoo.init.enabled`) — a `post-install` hook Job (`hooks/job-init.yaml`) that runs `odoo -i <modules> -d <db> --stop-after-init` **once, on first install only**. A single Job regardless of replica count. An optional `wait-for-db` initContainer (`odoo.hooks.waitForDb`) blocks on the DB host:port first.
+- **Update** (`odoo.update.enabled`, default **false**) — a `pre-upgrade` hook Job (`hooks/job-update.yaml`) that runs on `helm upgrade`. Its `prepare` initContainer (image `odoo.hooks.kubectlImage`, default `alpine/kubectl:1.36.1`) scales Odoo (and cron) to 0 and waits for their pods to terminate, then the Job runs `odoo -u <modules> --stop-after-init`. Helm then re-applies the deployment, bringing Odoo back up with the new image. Set `update.enabled: true` only for a version bump (it causes downtime + migration). RBAC for the scale/wait lives in `hooks/rbac.yaml` (rendered only when update is enabled).
+Hook Jobs mount only the `odoo.conf` secret (no PVC). (Multi-tenant / Indexed-Job support is planned for a later release.)
+
+Shared Job spec lives in `_helpers.tpl` helpers: `..hookOdooContainer` and `..hookVolumes`.
+
 ### Maintenance Mode
 
 When `maintenance.enabled: true`, the chart:
@@ -60,6 +70,8 @@ When `maintenance.enabled: true`, the chart:
 - Scales the cron deployment to 0 replicas (so scheduled actions don't write to the DB during migrations/restores)
 - Deploys a maintenance page (custom HTML or default)
 - Redirects Ingress traffic to the maintenance service
+
+The update hook reuses this same maintenance nginx (config/HTML ConfigMaps) but brings up its own `pre-upgrade` hook copy of the maintenance Deployment (`hooks/maintenance-hook.yaml`). Crucially, that pod carries the chart's `selectorLabels` and a `nginx-http` port, so the existing `<fullname>-nginx` Service routes to it while Odoo is scaled to 0 — **the ingress is never modified** (an earlier `kubectl patch` approach was abandoned because Helm's 3-way merge does not revert out-of-band ingress edits when the rendered ingress manifest is unchanged). The hook is torn down once the update Job succeeds, and the Service routes back to Odoo.
 
 ### Health Checks
 
@@ -84,6 +96,7 @@ Connection resolution lives in the `..dbHost`/`..dbPort`/`..dbName`/`..dbUser`/`
 | `templates/secrets.yaml` | PostgreSQL credentials and `odoo.conf` secret |
 | `templates/configmap.yaml` | Nginx config and maintenance page HTML |
 | `templates/externalsecrets.yaml` | Vault/external-secrets integration |
+| `templates/hooks/` | Init (`post-install`) / update (`pre-upgrade`) hook Jobs, RBAC, maintenance-page hook |
 | `test/local.yaml` | Development overrides (ingress enabled, `odoo.local` hostname) |
 
 ## CI/CD

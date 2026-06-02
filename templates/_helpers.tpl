@@ -145,3 +145,37 @@ max_cron_threads = 0
 max_cron_threads = {{ .Values.odoo.max_cron_threads | int }}
 {{- end }}
 {{- end }}
+
+{{/*
+Shared spec for the Odoo init/update hook Job containers.
+Renders image, pull policy, the odoo.conf mount and extraEnv/extraEnvFrom — but
+NOT name or command (each Job sets those). Filestore (PVC) is intentionally not
+mounted: the hooks only touch the database, and skipping the RWO volume avoids
+contention with the running Odoo deployment. Call with the root context.
+*/}}
+{{- define "..hookOdooContainer" -}}
+image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+imagePullPolicy: {{ .Values.image.pullPolicy }}
+volumeMounts:
+  - name: {{ include "..fullname" . }}-odoo-conf
+    mountPath: /etc/odoo/odoo.conf
+    subPath: odoo.conf
+    readOnly: true
+{{- if .Values.extraEnv }}
+env:
+{{- toYaml .Values.extraEnv | nindent 2 }}
+{{- end }}
+{{- if .Values.extraEnvFrom }}
+envFrom:
+{{- toYaml .Values.extraEnvFrom | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Volumes for the init/update hook Jobs: the odoo.conf secret. Call with root context.
+*/}}
+{{- define "..hookVolumes" -}}
+- name: {{ include "..fullname" . }}-odoo-conf
+  secret:
+    secretName: "{{ include "..fullname" . }}-odoo-conf"
+{{- end }}

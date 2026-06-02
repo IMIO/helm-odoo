@@ -56,12 +56,34 @@ nginx:
 
 # Odoo application configuration
 odoo:
+  # Database initialisation. When enabled, a Job runs once as a Helm
+  # post-install hook (first install only): `odoo -i <modules> -d <db> --stop-after-init`.
   init:
     enabled: false
     modules: base,web
+  # Module/version update. When enabled, a Job runs as a Helm pre-upgrade hook
+  # on the next `helm upgrade`: it scales Odoo (and cron) to 0, runs
+  # `odoo -u <modules> -d <db> --stop-after-init`, then Helm brings the
+  # deployment back up with the new image. Set true only for a version bump —
+  # leaving it on means downtime + migration on every upgrade.
+  # Runs only on `helm upgrade` of an existing release; it is skipped on the first
+  # install (a fresh DB is initialized by odoo.init, not updated).
   update:
-    enabled: true
+    enabled: false
     modules: all
+    # Serve the maintenance page (via the existing maintenance nginx) while the
+    # update migration runs. Requires ingress.enabled. Ignored if maintenance.enabled.
+    maintenancePage: true
+  # Shared settings for the init/update hook Jobs
+  hooks:
+    # Number of retries for the hook Job before it is marked failed
+    backoffLimit: 1
+    # Auto-clean finished hook Jobs after this many seconds
+    ttlSecondsAfterFinished: 86400
+    # init: block on the DB host:port (TCP) before running `odoo -i`
+    waitForDb: true
+    # Image used by the update hook to scale the deployments down
+    kubectlImage: "alpine/kubectl:1.36.1"
   server_wide_modules: base,web
   # admin_passwd: managed by external secrets
   proxy_mode: "True"
@@ -254,11 +276,11 @@ autoscaling:
   # targetMemoryUtilizationPercentage: 80
 
 # Additional environment variables for the Odoo container
-# Also injected into the init-db-odoo init container when odoo.init.enabled is true
+# Also injected into the init/update hook Jobs (odoo.init / odoo.update)
 # extraEnv:
 
 # Additional environment variables from secrets or configmaps
-# Also injected into the init-db-odoo init container when odoo.init.enabled is true
+# Also injected into the init/update hook Jobs (odoo.init / odoo.update)
 # extraEnvFrom:
 
 # Extra init containers

@@ -1,0 +1,86 @@
+{{- if .Values.odoo.update.enabled }}
+{{- $fullName := include "..fullname" . -}}
+{{- $selector := printf "app.kubernetes.io/instance=%s,app.kubernetes.io/name=%s" .Release.Name (include "..name" .) -}}
+---
+# Module/version update, run on `helm upgrade` (Helm pre-upgrade hook).
+# Scales Odoo (and cron) to 0 so nothing writes to the DB during the migration,
+# then runs `odoo -u <modules> --stop-after-init`. Helm then re-applies the
+# deployment, bringing Odoo back up with the new image. While Odoo is at 0, the
+# maintenance-page hook pod (see maintenance-hook.yaml) carries the same labels
+# as the Odoo pods, so the existing nginx Service routes to it automatically —
+# the ingress is never modified.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $fullName }}-update
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+    app.kubernetes.io/component: update
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: {{ .Values.odoo.hooks.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.odoo.hooks.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "..selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: update
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ $fullName }}-hook
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      {{- if .Values.image.pullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.image.pullSecret }}
+      {{- end }}
+      initContainers:
+        - name: prepare
+          image: "{{ .Values.odoo.hooks.kubectlImage }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              # Scale a deployment to 0 and wait for its pods to go away, but
+              # only if it already exists. A deployment that is being created by
+              # this same `helm upgrade` (e.g. cron enabled for the first time)
+              # does not exist yet at pre-upgrade hook time.
+              scale_down() {
+                if kubectl get deployment "$1" >/dev/null 2>&1; then
+                  echo "scaling down $1"
+                  kubectl scale deployment "$1" --replicas=0
+                  kubectl wait --for=delete pod -l "$2" --timeout=300s || true
+                else
+                  echo "deployment $1 not found, skipping"
+                fi
+              }
+              scale_down {{ $fullName }} "{{ $selector }},app.kubernetes.io/component=server"
+              {{- if .Values.cron.enabled }}
+              scale_down {{ $fullName }}-cron "{{ $selector }},app.kubernetes.io/component=cron"
+              {{- end }}
+      containers:
+        - name: odoo-update
+          {{- include "..hookOdooContainer" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - odoo -u {{ .Values.odoo.update.modules }} -d {{ include "..dbName" . }} --stop-after-init
+      volumes:
+        {{- include "..hookVolumes" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -34,29 +34,9 @@ spec:
     spec:
       securityContext:
         {{- toYaml .Values.securityContext | nindent 8 }}
-      {{- if or .Values.odoo.init.enabled .Values.extraInitContainers }}
+      {{- with .Values.extraInitContainers }}
       initContainers:
-        {{- if .Values.odoo.init.enabled }}
-        - name: init-db-odoo
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          command: ["/bin/bash", "-c", 'odoo -i {{ .Values.odoo.init.modules }} -d {{ include "..dbName" . }} --stop-after-init']
-          volumeMounts:
-            - name: {{ include "..fullname" . }}-odoo-conf
-              mountPath: /etc/odoo/odoo.conf
-              subPath: odoo.conf
-              readOnly: true
-          {{- if .Values.extraEnv }}
-          env:
-            {{- toYaml .Values.extraEnv | nindent 12 }}
-          {{- end }}
-          {{- if .Values.extraEnvFrom }}
-          envFrom:
-            {{- toYaml .Values.extraEnvFrom | nindent 12 }}
-          {{- end }}
-        {{- end }}
-        {{- with .Values.extraInitContainers }}
         {{- toYaml . | nindent 8 }}
-        {{- end }}
       {{- end }}
       {{- if .Values.image.pullSecret }}
       imagePullSecrets:
@@ -82,9 +62,6 @@ spec:
               subPath: nginx.conf
         - name: {{ include "..fullname" . }}-service
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-      {{- if .Values.odoo.update.enabled }}
-          command: ["/bin/bash", "-c", 'odoo --update {{ .Values.odoo.update.modules }} -d {{ include "..dbName" . }}']
-      {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: odoo-http
