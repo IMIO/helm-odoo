@@ -1,9 +1,9 @@
-{{- if and .Values.odoo.update.enabled .Values.odoo.update.maintenancePage .Values.ingress.enabled (not .Values.maintenance.enabled) }}
+{{- if and (or .Values.odoo.update.enabled .Values.odoo.init.enabled) .Values.odoo.update.maintenancePage .Values.ingress.enabled (not .Values.maintenance.enabled) }}
 {{- $fullName := include "..fullname" . -}}
 ---
-# Maintenance page served during an update migration. Rendered as a pre-upgrade
-# hook (created before the update Job scales Odoo down, removed once the update
-# succeeds). The pod deliberately carries the chart's selectorLabels — the same
+# Maintenance page served during an update or re-init migration. Rendered as a
+# pre-upgrade hook (created before the init/update Job scales Odoo down, removed
+# once the hook succeeds). The pod deliberately carries the chart's selectorLabels — the same
 # labels the {{ $fullName }}-nginx Service selects on — and exposes a port named
 # `nginx-http`. While the Odoo deployment is scaled to 0, that Service therefore
 # routes to this maintenance pod, so the ingress is never touched (and never
@@ -18,7 +18,7 @@ metadata:
     app.kubernetes.io/component: maintenance
   annotations:
     "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-weight": "-3"
+    "helm.sh/hook-weight": "-5"
     "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
 spec:
   replicas: 1

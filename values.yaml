@@ -56,23 +56,31 @@ nginx:
 
 # Odoo application configuration
 odoo:
-  # Database initialisation. When enabled, a Job runs once as a Helm
-  # post-install hook (first install only): `odoo -i <modules> -d <db> --stop-after-init`.
+  # Database initialisation. When enabled, a Job runs as a Helm pre-install AND
+  # pre-upgrade hook: its `prepare` initContainer scales any running Odoo/cron
+  # to 0, it waits for the DB, then runs `odoo -i <modules> -d <db>
+  # --stop-after-init` BEFORE the Odoo deployment is (re)applied — so Odoo never
+  # starts against an uninitialised DB. Runs at a lower hook-weight than update,
+  # so init completes first when both are enabled.
+  # Treat `enabled` as a ONE-SHOT intent: set true to initialise on install, or
+  # to re-initialise after trashing the DB (`helm upgrade` with init.enabled=true),
+  # then set it back to false. Left on, every `helm upgrade` re-runs `odoo -i`
+  # (a no-op on already-installed modules, but it scales Odoo to 0 meanwhile).
   init:
     enabled: false
     modules: base,web
-  # Module/version update. When enabled, a Job runs as a Helm pre-upgrade hook
-  # on the next `helm upgrade`: it scales Odoo (and cron) to 0, runs
-  # `odoo -u <modules> -d <db> --stop-after-init`, then Helm brings the
+  # Module/version update. When enabled, a Job runs as a Helm pre-install AND
+  # pre-upgrade hook, at a HIGHER weight than init (so init runs first): its
+  # `prepare` initContainer scales Odoo (and cron) to 0, it waits for the DB,
+  # runs `odoo -u <modules> -d <db> --stop-after-init`, then Helm brings the
   # deployment back up with the new image. Set true only for a version bump —
-  # leaving it on means downtime + migration on every upgrade.
-  # Runs only on `helm upgrade` of an existing release; it is skipped on the first
-  # install (a fresh DB is initialized by odoo.init, not updated).
+  # leaving it on means downtime + migration on every upgrade. `odoo -u` needs
+  # an already-initialised DB (use odoo.init for a brand-new database).
   update:
     enabled: false
     modules: all
     # Serve the maintenance page (via the existing maintenance nginx) while the
-    # update migration runs. Requires ingress.enabled. Ignored if maintenance.enabled.
+    # update/re-init migration runs. Requires ingress.enabled. Ignored if maintenance.enabled.
     maintenancePage: true
   # Shared settings for the init/update hook Jobs
   hooks:
@@ -80,9 +88,9 @@ odoo:
     backoffLimit: 1
     # Auto-clean finished hook Jobs after this many seconds
     ttlSecondsAfterFinished: 86400
-    # init: block on the DB host:port (TCP) before running `odoo -i`
+    # init/update: block on the DB host:port (TCP) before running odoo
     waitForDb: true
-    # Image used by the update hook to scale the deployments down
+    # Image used by the init/update hooks to scale the deployments down
     kubectlImage: "alpine/kubectl:1.36.1"
   server_wide_modules: base,web
   # admin_passwd: managed by external secrets
@@ -161,9 +169,19 @@ externalDatabase:
 # Set enabled: false to use an external database (configure externalDatabase above).
 # Passwords can be set inline via auth.password/auth.postgresPassword, OR supplied
 # through auth.existingSecret (bitnami-native).
+#
 ## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
 postgresql:
   enabled: true
+  # The Odoo init/update hooks run at pre-install and wait for the DB. Helm has
+  # no way to deploy a subchart before the parent's pre-install hooks, so run
+  # the bundled PostgreSQL as a pre-install hook itself (lower weight than the
+  # init hook at 0) — Helm waits for it Ready first. Dev/test only; pairs with
+  # the ephemeral storage below. Production should use an external DB instead
+  # (postgresql.enabled: false + externalDatabase.*).
+  commonAnnotations:
+    helm.sh/hook: pre-install
+    helm.sh/hook-weight: "-20"
   global:
     security:
       allowInsecureImages: true
@@ -192,7 +210,11 @@ postgresql:
 existingSecret:
   enabled: false
 
-# Use external-secrets.io for Odoo configuration instead of generating one
+# Use external-secrets.io for Odoo configuration instead of generating one.
+# Works with odoo.init/odoo.update: the ExternalSecret is rendered as a
+# pre-install/pre-upgrade hook so the operator syncs the odoo.conf secret during
+# the pre-install phase; the hook Job's mount then retries until it appears (the
+# operator must sync within helm --timeout).
 externalsecrets:
   enabled: false
   secretStoreRef:

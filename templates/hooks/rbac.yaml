@@ -1,9 +1,9 @@
-{{- if .Values.odoo.update.enabled }}
+{{- if or .Values.odoo.init.enabled .Values.odoo.update.enabled }}
 {{- $fullName := include "..fullname" . -}}
 ---
-# RBAC for the update hook Job: lets it scale the Odoo/cron deployments to 0 and
-# wait for their pods to terminate during the migration. Created before the
-# update Job (lower hook-weight).
+# RBAC for the init/update hook Jobs: lets their `prepare` initContainer scale
+# the Odoo/cron deployments to 0 and wait for their pods to terminate. Created
+# before the init/update Jobs (lower hook-weight), on both install and upgrade.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -11,8 +11,8 @@ metadata:
   labels:
     {{- include "..labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
     "helm.sh/hook-delete-policy": before-hook-creation
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -22,8 +22,8 @@ metadata:
   labels:
     {{- include "..labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
     "helm.sh/hook-delete-policy": before-hook-creation
 rules:
   - apiGroups: ["apps"]
@@ -43,8 +43,8 @@ metadata:
   labels:
     {{- include "..labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
     "helm.sh/hook-delete-policy": before-hook-creation
 roleRef:
   apiGroup: rbac.authorization.k8s.io

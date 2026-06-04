@@ -1,14 +1,16 @@
 {{- if .Values.odoo.update.enabled }}
 {{- $fullName := include "..fullname" . -}}
-{{- $selector := printf "app.kubernetes.io/instance=%s,app.kubernetes.io/name=%s" .Release.Name (include "..name" .) -}}
 ---
-# Module/version update, run on `helm upgrade` (Helm pre-upgrade hook).
-# Scales Odoo (and cron) to 0 so nothing writes to the DB during the migration,
-# then runs `odoo -u <modules> --stop-after-init`. Helm then re-applies the
-# deployment, bringing Odoo back up with the new image. While Odoo is at 0, the
-# maintenance-page hook pod (see maintenance-hook.yaml) carries the same labels
-# as the Odoo pods, so the existing nginx Service routes to it automatically —
-# the ingress is never modified.
+# Module/version update (Helm pre-install + pre-upgrade hook). Runs at a higher
+# hook-weight than init (10 > 0), so when both are enabled init runs first.
+# Its `prepare` initContainer scales Odoo (and cron) to 0 so nothing writes to
+# the DB during the migration, then runs `odoo -u <modules> --stop-after-init`.
+# Helm then (re-)applies the deployment, bringing Odoo back up with the new
+# image. While Odoo is at 0, the maintenance-page hook pod (see
+# maintenance-hook.yaml) carries the same labels as the Odoo pods, so the
+# existing nginx Service routes to it automatically — the ingress is never
+# modified. On pre-install the deployments don't exist yet, so `prepare` is a
+# no-op and Helm simply starts Odoo after the hook.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -17,8 +19,8 @@ metadata:
     {{- include "..labels" . | nindent 4 }}
     app.kubernetes.io/component: update
   annotations:
-    "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-weight": "0"
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "10"
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   backoffLimit: {{ .Values.odoo.hooks.backoffLimit }}
@@ -38,30 +40,10 @@ spec:
         - name: {{ .Values.image.pullSecret }}
       {{- end }}
       initContainers:
-        - name: prepare
-          image: "{{ .Values.odoo.hooks.kubectlImage }}"
-          command:
-            - /bin/sh
-            - -c
-            - |
-              set -e
-              # Scale a deployment to 0 and wait for its pods to go away, but
-              # only if it already exists. A deployment that is being created by
-              # this same `helm upgrade` (e.g. cron enabled for the first time)
-              # does not exist yet at pre-upgrade hook time.
-              scale_down() {
-                if kubectl get deployment "$1" >/dev/null 2>&1; then
-                  echo "scaling down $1"
-                  kubectl scale deployment "$1" --replicas=0
-                  if kubectl get pods -l "$2" --no-headers -o name | grep -q .; then
-                    kubectl wait --for=delete pod -l "$2" --timeout=300s
-                  fi
-                else
-                  echo "deployment $1 not found, skipping"
-                fi
-              }
-              scale_down {{ $fullName }} "{{ $selector }},app.kubernetes.io/component=server"
-              scale_down {{ $fullName }}-cron "{{ $selector }},app.kubernetes.io/component=cron"
+        {{- include "..hookScaleDownInitContainer" . | nindent 8 }}
+        {{- if .Values.odoo.hooks.waitForDb }}
+        {{- include "..hookWaitForDbInitContainer" . | nindent 8 }}
+        {{- end }}
       containers:
         - name: odoo-update
           {{- include "..hookOdooContainer" . | nindent 10 }}
