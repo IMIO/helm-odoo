@@ -53,15 +53,15 @@ spec:
                 if kubectl get deployment "$1" >/dev/null 2>&1; then
                   echo "scaling down $1"
                   kubectl scale deployment "$1" --replicas=0
-                  kubectl wait --for=delete pod -l "$2" --timeout=300s || true
+                  if kubectl get pods -l "$2" --no-headers -o name | grep -q .; then
+                    kubectl wait --for=delete pod -l "$2" --timeout=300s
+                  fi
                 else
                   echo "deployment $1 not found, skipping"
                 fi
               }
               scale_down {{ $fullName }} "{{ $selector }},app.kubernetes.io/component=server"
-              {{- if .Values.cron.enabled }}
               scale_down {{ $fullName }}-cron "{{ $selector }},app.kubernetes.io/component=cron"
-              {{- end }}
       containers:
         - name: odoo-update
           {{- include "..hookOdooContainer" . | nindent 10 }}
