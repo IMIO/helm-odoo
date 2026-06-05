@@ -138,7 +138,6 @@ without touching the ingress.
 > [!IMPORTANT]
 > Set `odoo.update.enabled` back to `false` after the upgrade — left on, a
 > scale-to-0 migration runs on every `helm upgrade`.
-
 > [!NOTE]
 > **Bundled PostgreSQL + hooks:** Helm cannot deploy a subchart before the parent's
 > `pre-install` hooks, so `postgresql.enabled: true` is not up when the Jobs run. For
