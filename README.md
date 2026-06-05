@@ -164,8 +164,9 @@ things still need explicit configuration for production:
   instead of inline `odoo.admin_passwd` / `externalDatabase.password` so credentials
   never live in plaintext values.
 - [ ] **Resources** — set `resources` (Odoo), `nginx.resources` and `cron.resources`.
-- [ ] **securityContext** — defaults assume the official Odoo image (uid 101). If you
-  use a custom image with a different user, override `securityContext` /
+- [ ] **securityContext** — defaults assume the official Odoo image (`odoo` user,
+  uid 100 / gid 101). If you use a custom image with a different user, override
+  `securityContext` /
   `containerSecurityContext` / `nginx.containerSecurityContext` accordingly.
 
 ## Local Setup for development
@@ -296,7 +297,7 @@ defaults and a dedicated ServiceAccount with the API token disabled.
 > helm upgrade <release> . -f <values> --namespace <namespace>
 > ```
 >
-> If you run a custom Odoo image that does not run as uid 101, override
+> If you run a custom Odoo image whose user is not uid 100 / gid 101, override
 > `securityContext` / `containerSecurityContext` to match.
 
 ## License
