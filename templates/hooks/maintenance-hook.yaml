@@ -36,6 +36,12 @@ spec:
         {{- include "..selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: maintenance
     spec:
+      # The maintenance pod never talks to the Kubernetes API; don't mount a token.
+      # (Uses the default ServiceAccount — this hook only runs at pre-upgrade, so we
+      # avoid depending on the normal-resource ServiceAccount being applied yet.)
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
       {{- if .Values.nginx.image.pullSecret }}
       imagePullSecrets:
         - name: {{ .Values.nginx.image.pullSecret }}
@@ -43,6 +49,8 @@ spec:
       containers:
       - name: nginx
         image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
+        securityContext:
+          {{- toYaml .Values.nginx.containerSecurityContext | nindent 10 }}
         ports:
         # Named nginx-http so the {{ $fullName }}-nginx Service (targetPort:
         # nginx-http) routes here while Odoo is scaled to 0.

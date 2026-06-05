@@ -32,6 +32,8 @@ spec:
         {{- include "..selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: cron
     spec:
+      serviceAccountName: {{ include "..serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
       securityContext:
         {{- toYaml .Values.securityContext | nindent 8 }}
       {{- if .Values.cron.extraInitContainers }}
@@ -48,6 +50,8 @@ spec:
         - name: {{ include "..fullname" . }}-cron
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           args:
             - --max-cron-threads={{ .Values.cron.max_cron_threads }}
             - --workers={{ .Values.cron.workers }}

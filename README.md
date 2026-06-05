@@ -146,6 +146,28 @@ without touching the ingress.
 > (`helm.sh/hook: pre-install`, weight below `0`) — see `test/local.yaml`. Production
 > should use an external database (`postgresql.enabled: false` + `externalDatabase.*`).
 
+## Production readiness checklist
+
+The chart ships safe-by-default security settings (non-root containers, dropped
+capabilities, a dedicated ServiceAccount with the API token disabled), but a few
+things still need explicit configuration for production:
+
+- [ ] **Persistence** — set `persistence.enabled: true` with an appropriate
+  `storageClass`/`size`. Without it the filestore lives on an `emptyDir` and Odoo
+  attachments/sessions are lost on pod restart. For more than one replica the
+  filestore must be `ReadWriteMany`.
+- [ ] **External database** — set `postgresql.enabled: false` and configure
+  `externalDatabase.*` (e.g. [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg)).
+  The bundled bitnami PostgreSQL pulls from the deprecated `bitnamilegacy` registry
+  and is dev/test only.
+- [ ] **Secrets** — use `existingSecret.enabled: true` or `externalsecrets.enabled: true`
+  instead of inline `odoo.admin_passwd` / `externalDatabase.password` so credentials
+  never live in plaintext values.
+- [ ] **Resources** — set `resources` (Odoo), `nginx.resources` and `cron.resources`.
+- [ ] **securityContext** — defaults assume the official Odoo image (uid 101). If you
+  use a custom image with a different user, override `securityContext` /
+  `containerSecurityContext` / `nginx.containerSecurityContext` accordingly.
+
 ## Local Setup for development
 
 Create a kind cluster:
@@ -220,7 +242,7 @@ Please read the official [Helm Contribution Guide](https://github.com/helm/chart
 
 ### To 1.0.0
 
-This is a breaking release. There are two independent migrations to apply to your values.
+This is a breaking release. There are three independent migrations to apply to your values.
 
 **1. PostgreSQL configuration split**
 
@@ -255,6 +277,27 @@ in favor of [Helm hook Jobs](#database-initialization-and-updates). Notable chan
 > The update hook needs permission to scale the deployments to 0. The chart creates a
 > namespaced ServiceAccount/Role/RoleBinding for this automatically, rendered only while
 > `odoo.update.enabled: true`.
+
+**3. Service/Deployment selector scoping + security hardening**
+
+The main Odoo Deployment and the `<release>-odoo` / `<release>-odoo-longpolling`
+Services are now scoped with `app.kubernetes.io/component: server` so they do not
+select the **cron** pods (which share the base selector labels
+and also expose port 8069). This release also adds non-root securityContext
+defaults and a dedicated ServiceAccount with the API token disabled.
+
+> [!WARNING]
+> A Deployment's `spec.selector` is immutable, so `helm upgrade` from an earlier
+> release fails with `field is immutable`. Delete the old Deployment(s) first:
+>
+> ```bash
+> kubectl delete deployment <release>-odoo <release>-odoo-cron \
+>   --namespace <namespace> --ignore-not-found
+> helm upgrade <release> . -f <values> --namespace <namespace>
+> ```
+>
+> If you run a custom Odoo image that does not run as uid 101, override
+> `securityContext` / `containerSecurityContext` to match.
 
 ## License
 
