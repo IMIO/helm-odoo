@@ -16,8 +16,6 @@ maintainers:
 dependencies:
   - name: postgresql
     alias: postgresql
-    # Pinned to an exact version for reproducible builds (matches Chart.lock).
-    # Bundled PostgreSQL is dev/test only — see the deprecation note in values.yaml.
-    version: 14.3.3
+    version: 14.x.x
     repository: oci://registry-1.docker.io/bitnamicharts
     condition: postgresql.enabled
