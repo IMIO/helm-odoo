@@ -177,11 +177,12 @@ Volumes for the init/update hook Jobs: the odoo.conf secret. Call with root cont
 {{- define "..hookVolumes" -}}
 - name: {{ include "..fullname" . }}-odoo-conf
   secret:
-    {{- /* All backends expose <fullname>-odoo-conf at/before hook time: generated
-        renders it as a pre-install hook, existingSecret pre-exists, externalsecrets
-        is synced by the operator (its ExternalSecret is a pre-install hook) and the
-        Job's mount retries until it appears. */}}
-    secretName: "{{ include "..fullname" . }}-odoo-conf"
+    {{- /* existingSecret: the user's pre-existing <fullname>-odoo-conf is mounted
+        directly (it already exists at hook time). generated/externalsecrets: the
+        Jobs mount the dedicated pre-install hook copy <fullname>-odoo-conf-hook —
+        the runtime <fullname>-odoo-conf is a NORMAL resource, applied only after
+        pre-install hooks, so it is not yet available to the Jobs. */}}
+    secretName: "{{ include "..fullname" . }}-odoo-conf{{ if not .Values.existingSecret.enabled }}-hook{{ end }}"
 {{- end }}
 
 {{/*

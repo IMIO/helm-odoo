@@ -100,54 +100,27 @@ You need to have the external-secrets.io operator installed in your cluster. See
 
 ### Database initialization and updates
 
-Database lifecycle is handled by **Helm hook Jobs** rather than inside the main
-deployment. Both Jobs run on **`pre-install` and `pre-upgrade`**, so they execute
-*before* the Odoo (and cron) deployments are created or re-applied — nothing writes to
-the database while they run, and Odoo never starts against an uninitialised DB. Each Job
-first scales any **running** Odoo/cron to 0 (a no-op on a fresh install, where they don't
-exist yet) and waits for the database to be reachable; afterwards Helm brings the
-deployments up at their normal replica counts.
+Database lifecycle is handled by **Helm hook Jobs** that run at `pre-install` and
+`pre-upgrade` — before the Odoo/cron deployments are created or re-applied. Each Job
+scales any running Odoo/cron to 0, waits for the database to be reachable, then runs
+the migration; Helm brings the deployments back up afterwards.
 
 #### Initialization (`odoo.init`)
-
-When `odoo.init.enabled: true`, the init hook Job runs `odoo -i <modules> -d <db>
---stop-after-init` at hook-weight `0` (before the update Job).
 
 ```yaml
 odoo:
   init:
     enabled: true
-    modules: base,web   # modules to install on the fresh database
+    modules: base,web
 ```
 
-> [!NOTE]
-> `odoo.init.enabled` is a **one-shot** intent. Set it `true` to initialise the database on
-> install, **or to re-initialise after wiping the DB**: run
-> `helm upgrade ... --set odoo.init.enabled=true` and the init Job scales Odoo/cron to 0,
-> re-runs `odoo -i`, then Helm brings them back up. Set it back to `false` afterwards —
-> left on, every `helm upgrade` re-runs `odoo -i` (a no-op on already-installed modules,
-> but it scales Odoo to 0 for the duration).
-
-An optional `wait-for-db` init container (`odoo.hooks.waitForDb`, default `true`) blocks
-on the database `host:port` before running.
+Runs `odoo -i <modules> -d <db> --stop-after-init`. Treat `enabled` as a **one-shot
+intent**: set it `true` to initialise on install or to re-initialise after wiping the
+DB, then set it back to `false` — left on, every upgrade re-runs `odoo -i` (which
+scales Odoo to 0 for the duration, even though the command itself is a no-op on an
+already-installed database).
 
 #### Updates (`odoo.update`)
-
-When `odoo.update.enabled: true`, the update hook Job runs at hook-weight `10` (after
-init). It:
-
-1. scales the Odoo deployment (and the cron deployment, if enabled) to **0 replicas**,
-2. optionally serves a maintenance page while the migration runs
-   (`odoo.update.maintenancePage: true`, requires `ingress.enabled`),
-3. runs `odoo -u <modules> -d <db> --stop-after-init`,
-
-after which Helm re-applies the deployment, bringing Odoo back up with the new image.
-`odoo -u` requires an already-initialised database (use `odoo.init` for a brand-new DB).
-
-The maintenance page is served **without modifying the ingress**: a temporary maintenance
-pod is created with the same labels the `<release>-nginx` Service selects on, so while Odoo
-is scaled to 0 that Service routes to the maintenance pod, and routes back to Odoo once the
-pod is torn down and Odoo returns.
 
 ```yaml
 odoo:
@@ -157,33 +130,21 @@ odoo:
     maintenancePage: true
 ```
 
+Runs `odoo -u <modules> -d <db> --stop-after-init` (requires an already-initialised
+DB). With `maintenancePage: true` (requires `ingress.enabled`), a temporary maintenance
+pod is created that the `<release>-nginx` Service routes to while Odoo is scaled to 0,
+without touching the ingress.
+
 > [!IMPORTANT]
-> `odoo.update.enabled` defaults to `false`. Enable it **only** for the upgrade that bumps
-> the Odoo image/version, then set it back to `false` — leaving it on means a scale-to-0
-> migration runs on **every** `helm upgrade`. The init/update hooks share a small RBAC
-> (ServiceAccount/Role/RoleBinding) so they can scale the deployments to 0 and wait for
-> their pods to terminate; it is rendered while `odoo.init.enabled` **or**
-> `odoo.update.enabled` is true.
-
-The kubectl image used by the init/update hooks is configurable via `odoo.hooks.kubectlImage`
-(default `alpine/kubectl:1.36.1`).
+> Set `odoo.update.enabled` back to `false` after the upgrade — left on, a
+> scale-to-0 migration runs on every `helm upgrade`.
 
 > [!NOTE]
-> **Bundled PostgreSQL + hooks:** the hooks run at `pre-install`, and Helm cannot deploy a
-> dependency before the parent's pre-install hooks, so the bundled bitnami PostgreSQL
-> (`postgresql.enabled: true`) is not up when they run. To use it together with the hooks
-> (dev/test), run PostgreSQL itself as a pre-install hook via `postgresql.commonAnnotations`
-> (`helm.sh/hook: pre-install` with a weight below `0`) — see `test/local.yaml`. For
-> production, use an external database (`postgresql.enabled: false` + `externalDatabase.*`).
-
-> [!NOTE]
-> **odoo.conf secret + hooks:** because the hooks run at `pre-install`, the secret they mount
-> is provisioned *before* them. The Jobs (and the deployment) always mount `<release>-odoo-conf`:
-> in **generated** mode the chart renders it as a `pre-install,pre-upgrade` hook (so it's a Helm
-> hook even without init/update — recreated each upgrade, not shown in `helm get manifest`/rollback;
-> harmless because kubelet re-mounts); in **existingSecret** mode it pre-exists; in **externalsecrets**
-> mode the `ExternalSecret` is also a pre-install hook, so the operator syncs the secret during
-> pre-install and the Job's mount retries until it appears (the operator must sync within `--timeout`).
+> **Bundled PostgreSQL + hooks:** Helm cannot deploy a subchart before the parent's
+> `pre-install` hooks, so `postgresql.enabled: true` is not up when the Jobs run. For
+> dev/test, run PostgreSQL as a pre-install hook via `postgresql.commonAnnotations`
+> (`helm.sh/hook: pre-install`, weight below `0`) — see `test/local.yaml`. Production
+> should use an external database (`postgresql.enabled: false` + `externalDatabase.*`).
 
 ## Local Setup for development
 
@@ -282,8 +243,8 @@ in favor of [Helm hook Jobs](#database-initialization-and-updates). Notable chan
 
 - **`odoo.update.enabled` now defaults to `false`** (was `true`). Previously the running
   Odoo container ran `odoo --update` on every start; now an enabled update is a
-  `pre-install,pre-upgrade` hook Job that scales Odoo to 0 and migrates. Enable it only for
-  the upgrade that bumps the Odoo version, then set it back to `false`.
+  `pre-install,pre-upgrade` hook Job that scales Odoo to 0 and migrates. Enable it only to
+  upgrade Odoo modules, then set it back to `false`.
 - `odoo.init.enabled` now drives a `pre-install,pre-upgrade` hook Job (a single Job, not
   per-replica / per-restart) that runs before Odoo starts; it can be re-run to
   re-initialise a wiped database via `helm upgrade`.
