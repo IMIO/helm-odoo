@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "..fullname" . }}-test-connection"
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    {{- toYaml .Values.securityContext | nindent 4 }}
+  restartPolicy: Never
+  containers:
+    - name: curl
+      image: curlimages/curl:8.11.1
+      securityContext:
+        {{- toYaml .Values.containerSecurityContext | nindent 8 }}
+      # Hits nginx's /healthz, which returns 200 directly without proxying to
+      # Odoo — a fast check that the nginx Service routes to a live pod.
+      command:
+        - /bin/sh
+        - -c
+        - >
+          curl -sf --max-time 10
+          http://{{ include "..fullname" . }}-nginx:{{ .Values.service.port }}/healthz

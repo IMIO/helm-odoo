@@ -34,6 +34,24 @@ nginx:
     ## Optionally specify an imagePullSecret.
     ## Secret must be manually created in the namespace.
     ## pullSecret:
+  # Container-level securityContext for the nginx sidecar (and the maintenance-page
+  # pods, which also run nginx). Stock nginx:alpine drops its workers to uid 101;
+  # NET_BIND_SERVICE lets the container bind port 80 as a non-root user. To run
+  # fully unprivileged instead, switch the image to nginxinc/nginx-unprivileged
+  # (listens on 8080) and adjust service.port / the container port accordingly.
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - NET_BIND_SERVICE
+    seccompProfile:
+      type: RuntimeDefault
+    # readOnlyRootFilesystem left false: nginx writes to /var/cache/nginx and /var/run
   resources: {}
   # limits:
   #   cpu: 100m
@@ -165,11 +183,18 @@ externalDatabase:
   ## it out of plaintext values.
   password: mySecuredPassword
 
-# Bundled PostgreSQL (bitnami subchart) — intended for dev/test.
+# Bundled PostgreSQL (bitnami subchart) — DEV/TEST ONLY.
 # Set enabled: false to use an external database (configure externalDatabase above).
 # Passwords can be set inline via auth.password/auth.postgresPassword, OR supplied
 # through auth.existingSecret (bitnami-native).
 #
+# !! DEPRECATION WARNING !!
+# This subchart pulls from the `bitnamilegacy/postgresql` image. In 2025 Bitnami
+# moved its free Docker Hub catalog to a "legacy" namespace that receives no
+# further updates/security patches (and may be removed). Do NOT run this in
+# production — set postgresql.enabled: false and point externalDatabase.* at a
+# maintained PostgreSQL (e.g. CloudNativePG). See
+# https://github.com/bitnami/containers/issues/83267
 ## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
 postgresql:
   enabled: true
@@ -184,6 +209,10 @@ postgresql:
     helm.sh/hook-weight: "-20"
   global:
     security:
+      # Required so the bitnami chart accepts the non-bitnami `bitnamilegacy`
+      # image override below. This relaxes the subchart's image verification and
+      # is a deliberate DEV/TEST concession — another reason not to use the
+      # bundled DB in production.
       allowInsecureImages: true
   image:
     repository: bitnamilegacy/postgresql
@@ -316,19 +345,41 @@ autoscaling:
 
 podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+# ServiceAccount for the Odoo / cron / maintenance pods. The API token is not
+# mounted by default — these pods never talk to the Kubernetes API. (The
+# init/update hook Jobs use their own `<release>-hook` ServiceAccount, created in
+# templates/hooks/rbac.yaml, which DOES need API access to scale deployments.)
+serviceAccount:
+  create: true
+  # If name is empty and create is true, the fullname is used.
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
 
-statefulSetSecurityAnnotations: {}
-
+# Pod-level securityContext (applied to the Odoo, cron and hook Job pods).
+# Note: Helm convention usually calls this `podSecurityContext`; the chart keeps
+# the name `securityContext` to avoid breaking existing overrides. The official
+# Odoo image runs as uid 101, so non-root is a safe default.
 securityContext:
   fsGroup: 101
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+  runAsNonRoot: true
+  runAsUser: 101
+  runAsGroup: 101
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level securityContext for the Odoo and cron containers (and the
+# init/update hook containers). readOnlyRootFilesystem is left false because
+# Odoo writes to /var/lib/odoo (filestore/sessions) and /tmp.
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 101
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
 
 nodeSelector: {}
 

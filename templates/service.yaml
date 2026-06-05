@@ -12,6 +12,11 @@ spec:
       port: {{ .Values.service.port }}
       targetPort: nginx-http
       protocol: TCP
+  # Intentionally NOT scoped to component=server: this is the web entrypoint and
+  # must also route to the hook maintenance pod (component=maintenance) while Odoo
+  # is scaled to 0 during an update/re-init. The `nginx-http` named targetPort
+  # already excludes the cron pods (they have no such port), so no extra scoping
+  # is needed here.
   selector:
     {{- include "..selectorLabels" . | nindent 4 }}
 ---
@@ -28,8 +33,12 @@ spec:
       port: 8069
       targetPort: odoo-http
       protocol: TCP
+  # Scoped to component=server so this Service targets only the Odoo server pods,
+  # not the cron pods (which carry the same selectorLabels and also expose
+  # odoo-http:8069).
   selector:
     {{- include "..selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
 ---
 apiVersion: v1
 kind: Service
@@ -44,8 +53,10 @@ spec:
       port: 8072
       targetPort: odoo-lp-http
       protocol: TCP
+  # Scoped to component=server (see the odoo Service above).
   selector:
     {{- include "..selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
 {{- if .Values.maintenance.enabled }}
 ---
 apiVersion: v1

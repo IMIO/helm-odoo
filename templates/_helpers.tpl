@@ -156,6 +156,8 @@ contention with the running Odoo deployment. Call with the root context.
 {{- define "..hookOdooContainer" -}}
 image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
 imagePullPolicy: {{ .Values.image.pullPolicy }}
+securityContext:
+  {{- toYaml .Values.containerSecurityContext | nindent 2 }}
 volumeMounts:
   - name: {{ include "..fullname" . }}-odoo-conf
     mountPath: /etc/odoo/odoo.conf
@@ -198,6 +200,8 @@ with nindent 8. Call with the root context.
 {{- $selector := printf "app.kubernetes.io/instance=%s,app.kubernetes.io/name=%s" .Release.Name (include "..name" .) -}}
 - name: prepare
   image: "{{ .Values.odoo.hooks.kubectlImage }}"
+  securityContext:
+    {{- toYaml .Values.containerSecurityContext | nindent 4 }}
   command:
     - /bin/sh
     - -c
@@ -230,6 +234,8 @@ caller gates on .Values.odoo.hooks.waitForDb. Call with the root context.
 {{- define "..hookWaitForDbInitContainer" -}}
 - name: wait-for-db
   image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+  securityContext:
+    {{- toYaml .Values.containerSecurityContext | nindent 4 }}
   command:
     - /bin/bash
     - -c
