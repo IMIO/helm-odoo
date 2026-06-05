@@ -13,7 +13,7 @@ This [Helm](https://helm.sh/) chart installs `Odoo` in a [Kubernetes](https://ku
 ## Prerequisites
 
 > [!NOTE]
-> For production environments, it is recommended to use [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg) for PostgreSQL. The bundled chart is primarily intended for testing and development purposes. Be also aware of the upcoming changes to the bitnami catalog described in this [issue](https://github.com/bitnami/containers/issues/83267). 
+> For production environments, it is recommended to use [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg) for PostgreSQL. The bundled chart is primarily intended for testing and development purposes, do not use it in production. Be also aware of the upcoming changes to the bitnami catalog described in this [issue](https://github.com/bitnami/containers/issues/83267). 
 
 - Kubernetes cluster 1.25+
 - Helm 3.8.0+
@@ -138,6 +138,7 @@ without touching the ingress.
 > [!IMPORTANT]
 > Set `odoo.update.enabled` back to `false` after the upgrade — left on, a
 > scale-to-0 migration runs on every `helm upgrade`.
+
 > [!NOTE]
 > **Bundled PostgreSQL + hooks:** Helm cannot deploy a subchart before the parent's
 > `pre-install` hooks, so `postgresql.enabled: true` is not up when the Jobs run. For
