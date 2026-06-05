@@ -1,0 +1,69 @@
+{{- if and (or .Values.odoo.update.enabled .Values.odoo.init.enabled) .Values.odoo.update.maintenancePage .Values.ingress.enabled (not .Values.maintenance.enabled) }}
+{{- $fullName := include "..fullname" . -}}
+---
+# Maintenance page served during an update or re-init migration. Rendered as a
+# pre-upgrade hook (created before the init/update Job scales Odoo down, removed
+# once the hook succeeds). The pod deliberately carries the chart's selectorLabels — the same
+# labels the {{ $fullName }}-nginx Service selects on — and exposes a port named
+# `nginx-http`. While the Odoo deployment is scaled to 0, that Service therefore
+# routes to this maintenance pod, so the ingress is never touched (and never
+# needs reverting). Reuses the maintenance nginx config/HTML ConfigMaps that the
+# chart already renders. Only used when maintenance.enabled is false.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}-maintenance-page
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "..selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: maintenance
+  template:
+    metadata:
+      {{- with .Values.maintenance.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "..selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: maintenance
+    spec:
+      {{- if .Values.nginx.image.pullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.nginx.image.pullSecret }}
+      {{- end }}
+      containers:
+      - name: nginx
+        image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
+        ports:
+        # Named nginx-http so the {{ $fullName }}-nginx Service (targetPort:
+        # nginx-http) routes here while Odoo is scaled to 0.
+        - name: nginx-http
+          containerPort: 80
+          protocol: TCP
+        volumeMounts:
+        - name: {{ $fullName }}-config-volume
+          mountPath: /usr/share/nginx/html/maintenance/
+        - name: {{ $fullName }}-default-config-volume
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+      volumes:
+        - name: {{ $fullName }}-config-volume
+          configMap:
+            {{- if ne .Values.maintenance.customTemplate.name "" }}
+            name: {{ .Values.maintenance.customTemplate.name }}
+            {{- else }}
+            name: {{ $fullName }}-maintenance-page
+            {{- end }}
+        - name: {{ $fullName }}-default-config-volume
+          configMap:
+            name: {{ $fullName }}-default-conf
+{{- end }}

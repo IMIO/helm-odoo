@@ -13,7 +13,7 @@ This [Helm](https://helm.sh/) chart installs `Odoo` in a [Kubernetes](https://ku
 ## Prerequisites
 
 > [!NOTE]
-> For production environments, it is recommended to use [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg) for PostgreSQL. The bundled chart is primarily intended for testing and development purposes. Be also aware of the upcoming changes to the bitnami catalog described in this [issue](https://github.com/bitnami/containers/issues/83267). 
+> For production environments, it is recommended to use [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg) for PostgreSQL. The bundled chart is primarily intended for testing and development purposes, do not use it in production. Be also aware of the upcoming changes to the bitnami catalog described in this [issue](https://github.com/bitnami/containers/issues/83267). 
 
 - Kubernetes cluster 1.25+
 - Helm 3.8.0+
@@ -98,6 +98,54 @@ You need to have the external-secrets.io operator installed in your cluster. See
 > Enabling both will cause `helm install`/`helm upgrade` to fail with an explicit error.
 > Choose exactly one secret backend, or leave both disabled to have the chart generate secrets from `values.yaml`.
 
+### Database initialization and updates
+
+Database lifecycle is handled by **Helm hook Jobs** that run at `pre-install` and
+`pre-upgrade` — before the Odoo/cron deployments are created or re-applied. Each Job
+scales any running Odoo/cron to 0, waits for the database to be reachable, then runs
+the migration; Helm brings the deployments back up afterwards.
+
+#### Initialization (`odoo.init`)
+
+```yaml
+odoo:
+  init:
+    enabled: true
+    modules: base,web
+```
+
+Runs `odoo -i <modules> -d <db> --stop-after-init`. Treat `enabled` as a **one-shot
+intent**: set it `true` to initialise on install or to re-initialise after wiping the
+DB, then set it back to `false` — left on, every upgrade re-runs `odoo -i` (which
+scales Odoo to 0 for the duration, even though the command itself is a no-op on an
+already-installed database).
+
+#### Updates (`odoo.update`)
+
+```yaml
+odoo:
+  update:
+    enabled: true       # set true only for a version bump (causes downtime + migration)
+    modules: all
+    maintenancePage: true
+```
+
+Runs `odoo -u <modules> -d <db> --stop-after-init` (requires an already-initialised
+DB). With `maintenancePage: true` (requires `ingress.enabled`), a temporary maintenance
+pod is created that the `<release>-nginx` Service routes to while Odoo is scaled to 0,
+without touching the ingress.
+
+> [!IMPORTANT]
+> Set `odoo.update.enabled` back to `false` after the upgrade — left on, a
+> scale-to-0 migration runs on every `helm upgrade`.
+
+> [!NOTE]
+> **Bundled PostgreSQL + hooks:** Helm cannot deploy a subchart before the parent's
+> `pre-install` hooks, so `postgresql.enabled: true` is not up when the Jobs run. For
+> dev/test, run PostgreSQL as a pre-install hook via `postgresql.commonAnnotations`
+> (`helm.sh/hook: pre-install`, weight below `0`) — see `test/local.yaml`. Production
+> should use an external database (`postgresql.enabled: false` + `externalDatabase.*`).
+
 ## Local Setup for development
 
 Create a kind cluster:
@@ -148,6 +196,20 @@ nano /etc/hosts
 172.18.0.2 odoo.local
 ```
 
+Modify the test/local.yaml file and run the helm chart:
+
+```bash
+helm dep up
+helm upgrade odoo . -f test/local.yaml --namespace odoo --create-namespace --install
+```
+
+Cleanup:
+
+```bash
+helm uninstall odoo -n odoo
+kind delete cluster
+```
+
 ## Contributing
 
 Feel free to contribute by making a [pull request](https://github.com/imio/helm-odoo/pull/new/master).
@@ -157,6 +219,10 @@ Please read the official [Helm Contribution Guide](https://github.com/helm/chart
 ## Upgrading
 
 ### To 1.0.0
+
+This is a breaking release. There are two independent migrations to apply to your values.
+
+**1. PostgreSQL configuration split**
 
 The single `postgresql:` section that previously held both the bundled-chart config and
 the database connection settings has been split into two clearly-scoped sections
@@ -168,6 +234,27 @@ database). Update your values as follows:
 - `postgresql.auth.admin_password` → `postgresql.auth.postgresPassword` (bitnami-native key).
 - External-database connection now lives under `externalDatabase.*` (read only when
   `postgresql.enabled: false`).
+
+**2. Init and update moved to Helm hook Jobs**
+
+Database initialization and updates are no longer run inside the main deployment — the old
+`init-db-odoo` init container and the `odoo --update …` command override have been removed
+in favor of [Helm hook Jobs](#database-initialization-and-updates). Notable changes:
+
+- **`odoo.update.enabled` now defaults to `false`** (was `true`). Previously the running
+  Odoo container ran `odoo --update` on every start; now an enabled update is a
+  `pre-install,pre-upgrade` hook Job that scales Odoo to 0 and migrates. Enable it only to
+  upgrade Odoo modules, then set it back to `false`.
+- `odoo.init.enabled` now drives a `pre-install,pre-upgrade` hook Job (a single Job, not
+  per-replica / per-restart) that runs before Odoo starts; it can be re-run to
+  re-initialise a wiped database via `helm upgrade`.
+- New value groups: `odoo.update.maintenancePage` and `odoo.hooks.*`
+  (`backoffLimit`, `ttlSecondsAfterFinished`, `waitForDb`, `kubectlImage`).
+
+> [!NOTE]
+> The update hook needs permission to scale the deployments to 0. The chart creates a
+> namespaced ServiceAccount/Role/RoleBinding for this automatically, rendered only while
+> `odoo.update.enabled: true`.
 
 ## License
 

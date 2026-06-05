@@ -1,0 +1,64 @@
+{{- if .Values.odoo.init.enabled }}
+---
+# Database initialisation (Helm pre-install + pre-upgrade hook). Runs `odoo -i`
+# before the Odoo/cron deployments are (re)applied, so they never start against
+# an uninitialised DB. A lower hook-weight than the update Job (0 < 10), so when
+# both are enabled init completes first. Its `prepare` initContainer scales any
+# running Odoo/cron to 0 first (no-op on a fresh install), so re-init after a DB
+# wipe is `helm upgrade` with odoo.init.enabled=true. Treat init.enabled as a
+# one-shot intent (set back to false after install/re-init).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "..fullname" . }}-init
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+    app.kubernetes.io/component: init
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: {{ .Values.odoo.hooks.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.odoo.hooks.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "..selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: init
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "..fullname" . }}-hook
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      {{- if .Values.image.pullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.image.pullSecret }}
+      {{- end }}
+      initContainers:
+        {{- include "..hookScaleDownInitContainer" . | nindent 8 }}
+        {{- if .Values.odoo.hooks.waitForDb }}
+        {{- include "..hookWaitForDbInitContainer" . | nindent 8 }}
+        {{- end }}
+      containers:
+        - name: odoo-init
+          {{- include "..hookOdooContainer" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - odoo -i {{ .Values.odoo.init.modules }} -d {{ include "..dbName" . }} --stop-after-init
+      volumes:
+        {{- include "..hookVolumes" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -145,3 +145,98 @@ max_cron_threads = 0
 max_cron_threads = {{ .Values.odoo.max_cron_threads | int }}
 {{- end }}
 {{- end }}
+
+{{/*
+Shared spec for the Odoo init/update hook Job containers.
+Renders image, pull policy, the odoo.conf mount and extraEnv/extraEnvFrom — but
+NOT name or command (each Job sets those). Filestore (PVC) is intentionally not
+mounted: the hooks only touch the database, and skipping the RWO volume avoids
+contention with the running Odoo deployment. Call with the root context.
+*/}}
+{{- define "..hookOdooContainer" -}}
+image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+imagePullPolicy: {{ .Values.image.pullPolicy }}
+volumeMounts:
+  - name: {{ include "..fullname" . }}-odoo-conf
+    mountPath: /etc/odoo/odoo.conf
+    subPath: odoo.conf
+    readOnly: true
+{{- if .Values.extraEnv }}
+env:
+{{- toYaml .Values.extraEnv | nindent 2 }}
+{{- end }}
+{{- if .Values.extraEnvFrom }}
+envFrom:
+{{- toYaml .Values.extraEnvFrom | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Volumes for the init/update hook Jobs: the odoo.conf secret. Call with root context.
+*/}}
+{{- define "..hookVolumes" -}}
+- name: {{ include "..fullname" . }}-odoo-conf
+  secret:
+    {{- /* existingSecret: the user's pre-existing <fullname>-odoo-conf is mounted
+        directly (it already exists at hook time). generated/externalsecrets: the
+        Jobs mount the dedicated pre-install hook copy <fullname>-odoo-conf-hook —
+        the runtime <fullname>-odoo-conf is a NORMAL resource, applied only after
+        pre-install hooks, so it is not yet available to the Jobs. */}}
+    secretName: "{{ include "..fullname" . }}-odoo-conf{{ if not .Values.existingSecret.enabled }}-hook{{ end }}"
+{{- end }}
+
+{{/*
+"prepare" initContainer for the init/update hook Jobs. Scales the Odoo and cron
+deployments to 0 and waits for their pods to terminate — but only if they already
+exist (on pre-install they do not yet, so it is a graceful no-op; on pre-upgrade
+it quiesces the running pods so nothing writes to the DB while the hook runs).
+Requires the <fullname>-hook ServiceAccount/RBAC. Render under `initContainers:`
+with nindent 8. Call with the root context.
+*/}}
+{{- define "..hookScaleDownInitContainer" -}}
+{{- $fullName := include "..fullname" . -}}
+{{- $selector := printf "app.kubernetes.io/instance=%s,app.kubernetes.io/name=%s" .Release.Name (include "..name" .) -}}
+- name: prepare
+  image: "{{ .Values.odoo.hooks.kubectlImage }}"
+  command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      # Scale a deployment to 0 and wait for its pods to go away, but only if it
+      # already exists. A deployment being created by this same install/upgrade
+      # (e.g. cron enabled for the first time) does not exist yet at hook time.
+      scale_down() {
+        if kubectl get deployment "$1" >/dev/null 2>&1; then
+          echo "scaling down $1"
+          kubectl scale deployment "$1" --replicas=0
+          if kubectl get pods -l "$2" --no-headers -o name | grep -q .; then
+            kubectl wait --for=delete pod -l "$2" --timeout=300s
+          fi
+        else
+          echo "deployment $1 not found, skipping"
+        fi
+      }
+      scale_down {{ $fullName }} "{{ $selector }},app.kubernetes.io/component=server"
+      scale_down {{ $fullName }}-cron "{{ $selector }},app.kubernetes.io/component=cron"
+{{- end }}
+
+{{/*
+"wait-for-db" initContainer for the init/update hook Jobs: blocks until the
+database host:port accepts a TCP connection, so `odoo -i`/`odoo -u` never runs
+before the DB is reachable. Render under `initContainers:` with nindent 8; the
+caller gates on .Values.odoo.hooks.waitForDb. Call with the root context.
+*/}}
+{{- define "..hookWaitForDbInitContainer" -}}
+- name: wait-for-db
+  image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+  command:
+    - /bin/bash
+    - -c
+    - |
+      until bash -c "echo > /dev/tcp/{{ include "..dbHost" . }}/{{ include "..dbPort" . }}" 2>/dev/null; do
+        echo "waiting for database {{ include "..dbHost" . }}:{{ include "..dbPort" . }}..."
+        sleep 2
+      done
+      echo "database is reachable"
+{{- end }}

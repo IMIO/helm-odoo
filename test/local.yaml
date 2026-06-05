@@ -47,8 +47,14 @@ odoo:
     enabled: true
     modules: base,web
   update:
+    # Set true (with a new image.tag) to exercise the pre-upgrade update hook.
     enabled: true
     modules: all
+    maintenancePage: true
+  hooks:
+    backoffLimit: 1
+    waitForDb: true
+    kubectlImage: "alpine/kubectl:1.36.1"
   server_wide_modules: base,web
   admin_passwd: "mySecuredPassword"
   proxy_mode: "True"
@@ -74,7 +80,7 @@ odoo:
   log_handler: ":INFO"
 
 cron:
-  enabled: false
+  enabled: true
   replicaCount: 1
   strategy: Recreate
   max_cron_threads: 2
@@ -104,6 +110,15 @@ externalDatabase:
 ## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
 postgresql:
   enabled: true
+  # The Odoo init/update hooks run at pre-install and wait for the DB. Helm has
+  # no way to deploy a subchart before the parent's pre-install hooks, so run
+  # the bundled PostgreSQL as a pre-install hook itself (lower weight than the
+  # init hook at 0) — Helm waits for it Ready first. Dev/test only; pairs with
+  # the ephemeral storage below. Production should use an external DB instead
+  # (postgresql.enabled: false + externalDatabase.*).
+  commonAnnotations:
+    helm.sh/hook: pre-install
+    helm.sh/hook-weight: "-20"
   auth:
     # Database name should be false if you are using a multi-tenant setup
     # In this case, we are using the dbfilter option in the odoo section
