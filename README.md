@@ -243,6 +243,17 @@ Please read the official [Helm Contribution Guide](https://github.com/helm/chart
 
 ### To 1.0.0
 
+> [!IMPORTANT]
+> **TL;DR**
+> - **Before upgrading, delete the old Deployment(s)** — the selector is now immutable:
+>   `kubectl delete deployment <release>-odoo <release>-odoo-cron -n <ns> --ignore-not-found`
+> - **DB connection values moved:** `postgresql.host/port/auth` → `externalDatabase.*` (external DB),
+>   while `postgresql.*` now configures only the bundled bitnami subchart.
+> - **`odoo.update.enabled` now defaults to `false`** — init/update run as Helm hook Jobs, not in the main pod.
+> - **Containers are non-root by default** (official Odoo image: uid 100 / gid 101) and get a dedicated
+>   ServiceAccount with its token disabled. Custom images with a different user must override
+>   `securityContext` / `containerSecurityContext`.
+
 This is a breaking release. There are three independent migrations to apply to your values.
 
 **1. PostgreSQL configuration split**
