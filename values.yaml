@@ -160,6 +160,8 @@ cron:
   extraEnvFrom: []
   # Extra init containers to run before the cron container starts
   extraInitContainers: []
+  # Extra sidecar containers to add to the cron pod
+  extraContainers: []
   # Extra volumes to mount in the cron pod
   extraVolumes: []
   # Extra volume mounts for the cron container
@@ -343,6 +345,11 @@ autoscaling:
 
 # Extra init containers
 # extraInitContainers: []
+
+# Extra sidecar containers to add to the main Odoo pod
+# Useful for adding sidecars like Celery workers, log shippers, etc.
+# Each entry is a full Kubernetes container spec.
+# extraContainers: []
 
 # Extra volumes
 # extraVolumes: []
