@@ -176,6 +176,12 @@ extraVolumes:
       claimName: my-addons-pvc
 ```
 
+> [!NOTE]
+> Remember to specify `resources` (CPU/memory limits and requests) for your sidecar
+> containers to prevent unbounded resource usage. Sidecars inherit the pod-level
+> `securityContext` by default; override with a container-level `securityContext`
+> if needed.
+
 The same `extraContainers` / `cron.extraContainers` keys work identically for the
 dedicated cron deployment.
 
