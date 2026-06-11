@@ -81,6 +81,9 @@ spec:
           {{- end }}
           livenessProbe:
             {{- toYaml .Values.cron.livenessProbe | nindent 12 }}
+        {{- with .Values.cron.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       volumes:
         - name: {{ include "..fullname" . }}-odoo-conf
           secret:
