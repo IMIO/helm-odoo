@@ -259,6 +259,15 @@ externalsecrets:
     name: vault-backend
   postgresqlKey:
   odooKey:
+  # Remote property names looked up inside the Vault keys above. Override these
+  # to match your backend's secret layout.
+  properties:
+    postgresql:                          # properties inside postgresqlKey
+      password: postgresql-password
+      adminPassword: postgresql-admin-password
+    odoo:                                # properties inside odooKey
+      postgresqlPassword: postgresql-password
+      adminPasswd: odoo-admin-passwd
 
 persistence:
   enabled: false
