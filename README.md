@@ -146,45 +146,6 @@ without touching the ingress.
 > (`helm.sh/hook: pre-install`, weight below `0`) — see `test/local.yaml`. Production
 > should use an external database (`postgresql.enabled: false` + `externalDatabase.*`).
 
-### Extra sidecar containers
-
-Additional containers can be injected into the main Odoo pod (and/or the cron pod)
-via `extraContainers` / `cron.extraContainers`. Each entry is a full Kubernetes
-[container spec](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#Container).
-
-Example — adding a Celery worker sidecar to the main pod:
-
-```yaml
-extraContainers:
-  - name: celery-worker
-    image: "myregistry/my-odoo-addons:latest"
-    command: ["/bin/bash", "-c"]
-    args:
-      - "sleep 15; cd /mnt/extra-addons; celery -A celeryconfig worker --concurrency=5"
-    env:
-      - name: CELERY_BROKER_URL
-        valueFrom:
-          secretKeyRef:
-            name: celery-rabbit
-            key: rabbit-url
-    volumeMounts:
-      - name: my-addons
-        mountPath: /mnt/extra-addons
-extraVolumes:
-  - name: my-addons
-    persistentVolumeClaim:
-      claimName: my-addons-pvc
-```
-
-> [!NOTE]
-> Remember to specify `resources` (CPU/memory limits and requests) for your sidecar
-> containers to prevent unbounded resource usage. Sidecars inherit the pod-level
-> `securityContext` by default; override with a container-level `securityContext`
-> if needed.
-
-The same `extraContainers` / `cron.extraContainers` keys work identically for the
-dedicated cron deployment.
-
 ## Production readiness checklist
 
 The chart ships safe-by-default security settings (non-root containers, dropped
