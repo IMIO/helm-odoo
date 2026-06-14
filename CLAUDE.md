@@ -114,6 +114,12 @@ When `maintenance.enabled: true`, the chart:
 
 The update/re-init hooks reuse this same maintenance nginx (config/HTML ConfigMaps) but bring up their own `pre-upgrade` hook copy of the maintenance Deployment (`hooks/maintenance-hook.yaml`, rendered when `update.enabled` **or** `init.enabled`, with `maintenancePage` + `ingress.enabled`). Crucially, that pod carries the chart's `selectorLabels` and a `nginx-http` port, so the existing `<fullname>-nginx` Service routes to it while Odoo is scaled to 0 — **the ingress is never modified** (an earlier `kubectl patch` approach was abandoned because Helm's 3-way merge does not revert out-of-band ingress edits when the rendered ingress manifest is unchanged). The hook is torn down once the upgrade hooks succeed, and the Service routes back to Odoo.
 
+### Scheduled rollout restart
+
+When `rolloutRestart.enabled: true`, `templates/cronjob-rollout-restart.yaml` renders a **CronJob** (`<fullname>-rollout-restart`) plus its own dedicated **ServiceAccount/Role/RoleBinding** (also `<fullname>-rollout-restart`). On its schedule the Job runs `kubectl rollout restart` + `kubectl rollout status` over a list of target deployments. These are **normal** (non-hook) resources — unlike the init/update hooks, the CronJob runs independently of install/upgrade.
+
+The dedicated RBAC is deliberate: the chart's main ServiceAccount mounts no API token (`automountServiceAccountToken: false`), and the `<fullname>-hook` RBAC is hook-scoped and lacks the `watch` verb that `kubectl rollout status` needs. The Role grants `get`/`list`/`watch`/`patch` on `apps/deployments` in the release namespace; the pod sets `automountServiceAccountToken: true`. Image defaults to `odoo.hooks.kubectlImage`, securityContext reuses the chart's pod/container contexts (alpine/kubectl runs fine as uid 100). **Default targets** (empty `rolloutRestart.targets`): the main Odoo deployment `<fullname>`, plus `<fullname>-cron` when `cron.enabled`; an explicit `targets` list overrides this.
+
 ### Health Checks
 
 Both liveness and readiness probes for Odoo hit `/web/health` on the Odoo HTTP port. Liveness has a 120s initial delay; readiness has 30s. The Nginx sidecar probes hit `/healthz` on port 80, which returns 200 directly without proxying to Odoo.
@@ -138,6 +144,7 @@ Connection resolution lives in the `..dbHost`/`..dbPort`/`..dbName`/`..dbUser`/`
 | `templates/configmap.yaml` | Nginx config and maintenance page HTML |
 | `templates/externalsecrets.yaml` | Vault/external-secrets integration |
 | `templates/hooks/` | Init / update hook Jobs (both `pre-install,pre-upgrade`; init weight `0` < update weight `10`), RBAC, maintenance-page hook |
+| `templates/cronjob-rollout-restart.yaml` | Optional scheduled `kubectl rollout restart` CronJob + its dedicated `<fullname>-rollout-restart` RBAC (gated on `rolloutRestart.enabled`) |
 | `test/local.yaml` | Development overrides (ingress enabled, `odoo.local` hostname) |
 
 ## CI/CD

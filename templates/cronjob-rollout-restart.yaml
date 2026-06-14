@@ -1,0 +1,112 @@
+{{- if .Values.rolloutRestart.enabled }}
+{{- $fullName := include "..fullname" . -}}
+{{- $targets := .Values.rolloutRestart.targets -}}
+{{- if not $targets -}}
+{{- $targets = list $fullName -}}
+{{- if .Values.cron.enabled -}}
+{{- $targets = append $targets (printf "%s-cron" $fullName) -}}
+{{- end -}}
+{{- end -}}
+---
+# RBAC for the rollout-restart CronJob: a dedicated ServiceAccount/Role/RoleBinding
+# (not the chart's main SA, which mounts no token, nor the hook-scoped <fullname>-hook
+# RBAC) granting just enough to `kubectl rollout restart` (patch) and `kubectl rollout
+# status` (get/list/watch) the target deployments in this namespace.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $fullName }}-rollout-restart
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+    app.kubernetes.io/component: rollout-restart
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullName }}-rollout-restart
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+    app.kubernetes.io/component: rollout-restart
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullName }}-rollout-restart
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+    app.kubernetes.io/component: rollout-restart
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullName }}-rollout-restart
+subjects:
+  - kind: ServiceAccount
+    name: {{ $fullName }}-rollout-restart
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $fullName }}-rollout-restart
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+    app.kubernetes.io/component: rollout-restart
+spec:
+  schedule: {{ .Values.rolloutRestart.schedule | quote }}
+  concurrencyPolicy: {{ .Values.rolloutRestart.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.rolloutRestart.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.rolloutRestart.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.rolloutRestart.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.rolloutRestart.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "..selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: rollout-restart
+        spec:
+          serviceAccountName: {{ $fullName }}-rollout-restart
+          automountServiceAccountToken: true
+          restartPolicy: {{ .Values.rolloutRestart.restartPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- if .Values.image.pullSecret }}
+          imagePullSecrets:
+            - name: {{ .Values.image.pullSecret }}
+          {{- end }}
+          containers:
+            - name: kubectl
+              image: "{{ .Values.rolloutRestart.image | default .Values.odoo.hooks.kubectlImage }}"
+              imagePullPolicy: {{ .Values.rolloutRestart.imagePullPolicy }}
+              securityContext:
+                {{- toYaml .Values.containerSecurityContext | nindent 16 }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  for d in {{ $targets | join " " }}; do
+                    echo "restarting deployment/$d"
+                    kubectl rollout restart "deployment/$d"
+                    kubectl rollout status "deployment/$d" --timeout={{ .Values.rolloutRestart.timeout }}
+                  done
+              resources:
+                {{- toYaml .Values.rolloutRestart.resources | nindent 16 }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}
