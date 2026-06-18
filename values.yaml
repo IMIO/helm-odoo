@@ -176,6 +176,33 @@ cron:
     failureThreshold: 6
     successThreshold: 1
 
+# Scheduled deployment rollout restart (optional).
+# Renders a CronJob (+ its own ServiceAccount/Role/RoleBinding,
+# <fullname>-rollout-restart) that runs `kubectl rollout restart` + `kubectl
+# rollout status` against the Odoo (and cron) deployment(s) on a schedule, to
+# periodically recycle the pods. The Role grants get/list/watch/patch on
+# deployments in the release namespace.
+rolloutRestart:
+  enabled: false
+  # Cron schedule (cluster timezone / UTC). Default: weekly, Sunday 03:00.
+  schedule: "0 3 * * 0"
+  # Deployments to restart. When empty, defaults to the main Odoo deployment
+  # (<fullname>) plus <fullname>-cron when cron.enabled. Set explicit names to override.
+  targets: []
+  # Image used to run kubectl. Defaults to odoo.hooks.kubectlImage.
+  image: ""
+  imagePullPolicy: IfNotPresent
+  # Timeout passed to `kubectl rollout status`.
+  timeout: 300s
+  # Forbid overlapping runs.
+  concurrencyPolicy: Forbid
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  restartPolicy: Never
+  resources: {}
+
 # Connection settings for an EXTERNAL PostgreSQL database.
 # Used ONLY when postgresql.enabled is false. When the bundled chart is
 # enabled, connection settings come from the postgresql.* section below instead.

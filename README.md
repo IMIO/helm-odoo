@@ -146,6 +146,28 @@ without touching the ingress.
 > (`helm.sh/hook: pre-install`, weight below `0`) — see `test/local.yaml`. Production
 > should use an external database (`postgresql.enabled: false` + `externalDatabase.*`).
 
+### Scheduled rollout restart (`rolloutRestart`)
+
+Optionally schedule a periodic `kubectl rollout restart` to recycle the Odoo pods
+(e.g. to clear leaked memory or pick up a freshly pulled image tag). When enabled, the
+chart renders a `CronJob` plus a dedicated `ServiceAccount`/`Role`/`RoleBinding`
+(`<release>-rollout-restart`) scoped to `get`/`list`/`watch`/`patch` on deployments in
+the release namespace.
+
+```yaml
+rolloutRestart:
+  enabled: true
+  schedule: "0 3 * * 0"   # weekly, Sunday 03:00 (cluster timezone / UTC)
+  # targets: []           # default: <release> + <release>-cron (when cron.enabled)
+```
+
+On each run it executes `kubectl rollout restart` followed by `kubectl rollout status`
+for every target deployment. When `targets` is empty (the default) it restarts the main
+Odoo deployment and, if `cron.enabled`, the cron deployment too; set `targets` to an
+explicit list of deployment names to override. `concurrencyPolicy: Forbid` prevents
+overlapping runs. The kubectl image defaults to `odoo.hooks.kubectlImage` and can be
+overridden via `rolloutRestart.image`.
+
 ## Production readiness checklist
 
 The chart ships safe-by-default security settings (non-root containers, dropped
