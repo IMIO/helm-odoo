@@ -36,7 +36,7 @@ data:
         proxy_set_header Connection $connection_upgrade;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Real-IP $remote_addr;
       }
     
@@ -45,7 +45,7 @@ data:
         proxy_pass http://odoo;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Real-IP $remote_addr;
       }
       gzip_types text/css text/scss text/plain text/xml application/xml application/json application/javascript;
