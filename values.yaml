@@ -284,17 +284,30 @@ externalsecrets:
   enabled: false
   secretStoreRef:
     name: vault-backend
+  # Vault key holding the PostgreSQL credentials (DB user password + superuser).
+  # Consumed by the bundled-PostgreSQL secret, and the DEFAULT source for the DB
+  # password written into odoo.conf — so the password lives in Vault ONCE and is
+  # shared with the PostgreSQL secret instead of being duplicated under odooKey.
   postgresqlKey:
+  # Vault key holding Odoo's own secrets (the master admin_passwd).
   odooKey:
-  # Remote property names looked up inside the Vault keys above. Override these
+  # Remote key/property names looked up inside the Vault keys above. Override these
   # to match your backend's secret layout.
   properties:
-    postgresql:                          # properties inside postgresqlKey
+    postgresql:                          # properties looked up inside postgresqlKey
       password: postgresql-password
       adminPassword: postgresql-admin-password
-    odoo:                                # properties inside odooKey
-      postgresqlPassword: postgresql-password
-      adminPasswd: odoo-admin-passwd
+    odoo:                                # credentials written into odoo.conf
+      # DB password (odoo.conf db_password). Each credential picks its own Vault key:
+      # key "" -> postgresqlKey (falls back to odooKey when postgresqlKey is unset,
+      # e.g. an external DB). Set key explicitly to read it from any other key.
+      postgresqlPassword:
+        key: ""
+        property: postgresql-password
+      # Odoo master password (odoo.conf admin_passwd). key "" -> odooKey.
+      adminPasswd:
+        key: ""
+        property: odoo-admin-passwd
 
 persistence:
   enabled: false

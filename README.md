@@ -93,6 +93,42 @@ In the `values.yaml` file, set the `externalsecrets.enabled` parameter to `true`
 
 You need to have the external-secrets.io operator installed in your cluster. See the [external-secrets.io documentation](https://external-secrets.io/latest/) for more information.
 
+Two Vault keys are used: `postgresqlKey` (the PostgreSQL credentials — DB user
+password + superuser) and `odooKey` (Odoo's master `admin_passwd`). Each credential
+written into `odoo.conf` chooses its own key + property under
+`externalsecrets.properties.odoo`, so the **DB password is stored in Vault once and
+shared** with the PostgreSQL secret instead of being duplicated:
+
+```yaml
+externalsecrets:
+  enabled: true
+  secretStoreRef:
+    name: vault-backend
+  postgresqlKey: secret/data/odoo/db      # DB user password + superuser
+  odooKey: secret/data/odoo/app           # Odoo master password
+  properties:
+    postgresql:
+      password: postgresql-password
+      adminPassword: postgresql-admin-password
+    odoo:
+      postgresqlPassword:                 # odoo.conf db_password
+        key: ""                           # "" -> postgresqlKey (falls back to odooKey)
+        property: postgresql-password
+      adminPasswd:                        # odoo.conf admin_passwd
+        key: ""                           # "" -> odooKey
+        property: odoo-admin-passwd
+```
+
+- **Share the DB password (default):** leave `postgresqlPassword.key` empty. Both the
+  PostgreSQL secret and odoo.conf's `db_password` read `postgresqlKey` — one value in
+  Vault. To make *all* Odoo/DB secrets live in a single key, set
+  `postgresqlKey == odooKey`.
+- **Split keys:** set `postgresqlPassword.key` (or `adminPasswd.key`) to any other
+  Vault key to read that credential from a different location.
+- **External DB (`postgresql.enabled: false`):** the `<release>-postgresql-secret` is
+  not rendered; leave `postgresqlKey` unset and set only `odooKey` — `db_password`
+  falls back to `odooKey` (the pre-1.4.0 behavior).
+
 > [!WARNING]
 > `existingSecret.enabled` and `externalsecrets.enabled` are mutually exclusive.
 > Enabling both will cause `helm install`/`helm upgrade` to fail with an explicit error.
