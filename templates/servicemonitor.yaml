@@ -21,10 +21,10 @@ spec:
       {{- include "..selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: server
   endpoints:
-    - port: {{ .Values.serviceMonitor.port }}
-      path: {{ .Values.serviceMonitor.path }}
-      interval: {{ .Values.serviceMonitor.interval }}
-      scheme: {{ .Values.serviceMonitor.scheme }}
+    - port: {{ .Values.serviceMonitor.port | quote }}
+      path: {{ .Values.serviceMonitor.path | quote }}
+      interval: {{ .Values.serviceMonitor.interval | quote }}
+      scheme: {{ .Values.serviceMonitor.scheme | quote }}
       {{- with .Values.serviceMonitor.scrapeTimeout }}
       scrapeTimeout: {{ . }}
       {{- end }}
