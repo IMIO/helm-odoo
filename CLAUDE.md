@@ -124,6 +124,12 @@ When `rolloutRestart.enabled: true`, `templates/cronjob-rollout-restart.yaml` re
 
 The dedicated RBAC is deliberate: the chart's main ServiceAccount mounts no API token (`automountServiceAccountToken: false`), and the `<fullname>-hook` RBAC is hook-scoped and lacks the `watch` verb that `kubectl rollout status` needs. The Role grants `get`/`list`/`watch`/`patch` on `apps/deployments` in the release namespace; the pod sets `automountServiceAccountToken: true`. Image defaults to `odoo.hooks.kubectlImage`, securityContext reuses the chart's pod/container contexts (alpine/kubectl runs fine as uid 100). **Default targets** (empty `rolloutRestart.targets`): the main Odoo deployment `<fullname>`, plus `<fullname>-cron` when `cron.enabled`; an explicit `targets` list overrides this.
 
+### ServiceMonitor (metrics)
+
+When `serviceMonitor.enabled: true` (default **false**), `templates/servicemonitor.yaml` renders a Prometheus Operator **ServiceMonitor** (`monitoring.coreos.com/v1`, `<fullname>-service-monitor`) that scrapes Odoo metrics. Gated solely on its own `enabled` flag — no CRD-presence guard (same precedent as `externalsecrets.yaml`); requires the Prometheus Operator CRDs and an Odoo endpoint actually serving metrics at `serviceMonitor.path` (e.g. a metrics-exporting Odoo module). The chart only wires the scrape — it adds no metrics endpoint.
+
+The selector uses **positive** `matchLabels` (`..selectorLabels` + `app.kubernetes.io/component: server`) rather than a `component != cron` exclusion. A ServiceMonitor selector matches a Service's **`metadata.labels`**, not its `spec.selector`; the `-odoo`/`-lp-odoo` Services previously carried `component: server` only in their `spec.selector`, so `templates/service.yaml` now also stamps `app.kubernetes.io/component: server` into their `metadata.labels` (mirroring how `cron-service.yaml` stamps `component: cron`). The `odoo-http` endpoint then narrows scraping to the `<fullname>-odoo` Service (`-lp-odoo` exposes `odoo-lp-http`, so it's matched by the selector but skipped by the port name; `-cron` carries `component: cron` and is excluded). Configurable via the Standard-scope `serviceMonitor.*` values: `labels`/`annotations` (the `labels` typically carry the operator's `release:` selector), `port`, `path`, `interval`, `scheme`, `scrapeTimeout`, `relabelings`, `metricRelabelings`.
+
 ### Health Checks
 
 Both liveness and readiness probes for Odoo hit `/web/health` on the Odoo HTTP port. Liveness has a 120s initial delay; readiness has 30s. The Nginx sidecar probes hit `/healthz` on port 80, which returns 200 directly without proxying to Odoo.
@@ -147,6 +153,7 @@ Connection resolution lives in the `..dbHost`/`..dbPort`/`..dbName`/`..dbUser`/`
 | `templates/secrets.yaml` | Generated `odoo.conf` secret — normal `<fullname>-odoo-conf` + gated hook `<fullname>-odoo-conf-hook` |
 | `templates/configmap.yaml` | Nginx config and maintenance page HTML |
 | `templates/externalsecrets.yaml` | Vault/external-secrets integration |
+| `templates/servicemonitor.yaml` | Optional Prometheus Operator `ServiceMonitor` (gated on `serviceMonitor.enabled`) |
 | `templates/hooks/` | Init / update hook Jobs (both `pre-install,pre-upgrade`; init weight `0` < update weight `10`), RBAC, maintenance-page hook |
 | `templates/cronjob-rollout-restart.yaml` | Optional scheduled `kubectl rollout restart` CronJob + its dedicated `<fullname>-rollout-restart` RBAC (gated on `rolloutRestart.enabled`) |
 | `test/local.yaml` | Development overrides (ingress enabled, `odoo.local` hostname) |

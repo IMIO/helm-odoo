@@ -178,6 +178,31 @@ explicit list of deployment names to override. `concurrencyPolicy: Forbid` preve
 overlapping runs. The kubectl image defaults to `odoo.hooks.kubectlImage` and can be
 overridden via `rolloutRestart.image`.
 
+### Prometheus ServiceMonitor (`serviceMonitor`)
+
+Optionally expose Odoo metrics to a Prometheus Operator install (e.g.
+kube-prometheus-stack). When enabled, the chart renders a `ServiceMonitor`
+(`monitoring.coreos.com/v1`) that selects the main Odoo Service
+(`<release>-odoo`, `app.kubernetes.io/component: server`) and scrapes the named
+`odoo-http` port — the cron Service is deliberately excluded.
+
+```yaml
+serviceMonitor:
+  enabled: true
+  labels:
+    release: kube-prometheus-stack   # match your Prometheus serviceMonitorSelector
+  path: /metrics
+  interval: 30s
+```
+
+Requires the Prometheus Operator CRDs to be installed in the cluster, and an Odoo
+endpoint that actually serves metrics at `path` on the scraped port (e.g. a
+metrics-exporting Odoo module) — the chart only wires the scrape, it does not add
+a metrics endpoint. Most operators discover `ServiceMonitor`s by a label
+(commonly `release: <prometheus-release>`); set it via `serviceMonitor.labels`.
+`scrapeTimeout`, `scheme`, `relabelings` and `metricRelabelings` are also
+configurable — see [values.yaml](values.yaml).
+
 ## Production readiness checklist
 
 The chart ships safe-by-default security settings (non-root containers, dropped
