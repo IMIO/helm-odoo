@@ -262,6 +262,12 @@ Cleanup:
 
 ```bash
 helm uninstall odoo -n odoo
+
+# Delete resources not managed by Helm (hook Jobs/RBAC left behind by uninstall)
+kubectl delete all,serviceaccount,networkpolicies \
+  -l app.kubernetes.io/instance=odoo \
+  -n odoo --ignore-not-found
+
 kind delete cluster
 ```
 
