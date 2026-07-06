@@ -43,6 +43,10 @@ Three separate services expose different ports:
 - `odoo-odoo` (ClusterIP :8069) — internal Odoo HTTP
 - `odoo-odoo-longpolling` (ClusterIP :8072) — WebSocket/chat
 
+### Templated values (`tpl`)
+
+A set of identity/routing value fields is rendered through `tpl` (context `$`), so a value may embed `{{ .Values.* }}` expressions referencing other values (e.g. `fullnameOverride: "{{ .Values.instance_id }}"`) — designed for an ArgoCD `ApplicationSet` that merges a shared defaults file with per-instance `values.yaml`. Rendered fields: `..name`/`..fullname` (`nameOverride`/`fullnameOverride`), the `..dbHost`/`..dbName`/`..dbUser` helpers (`externalDatabase.host`/`.name`/`.user` + `postgresql.auth.database`/`.username`), `externalsecrets.odooKey`/`postgresqlKey`/`secretStoreRef.name`, and ingress `className`/`hosts[].host`/`paths[].path`/`tls[].secretName`/`tls[].hosts[]`. **Never** `tpl`-rendered: any password (`..dbPassword`), `..dbPort`, and the `..odooConf` body — the last one carries literal external-secrets placeholders (`{{ .postgresqlPassword }}`, `{{ .odooAdminPasswd }}`) that must reach the operator unrendered. `tpl` on a value with no `{{ }}` returns it unchanged, so existing plain-value installs are unaffected.
+
 ### Configuration and Secrets
 
 Odoo is configured via `odoo.conf` injected as a Kubernetes Secret. Three mutually exclusive approaches:
