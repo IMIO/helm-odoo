@@ -442,6 +442,9 @@ tolerations: []
 affinity: {}
 
 # Enable maintenance mode
+# NOTE: this only scales Odoo/cron to 0 and shows the maintenance page. It does NOT
+# disable the odoo.init/odoo.update hook Jobs — those still run on install/upgrade (so
+# you can migrate behind the maintenance page). For a DB restore, keep those flags false.
 maintenance:
   enabled: false
   ## You can add a signature to the maintenance page

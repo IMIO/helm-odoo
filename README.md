@@ -140,6 +140,16 @@ without touching the ingress.
 > scale-to-0 migration runs on every `helm upgrade`.
 
 > [!NOTE]
+> **Maintenance mode does not disable these hooks.** `maintenance.enabled: true` only
+> scales Odoo/cron to 0 and serves the maintenance page — the `init`/`update` Jobs still
+> run on the next `helm install`/`helm upgrade`. This is intentional: you can migrate
+> behind the maintenance page (set `maintenance.enabled: true`, then upgrade with
+> `odoo.update.enabled: true`, then reopen). If you enter maintenance for something that
+> must **not** touch the DB (e.g. a restore), make sure `odoo.init.enabled` and
+> `odoo.update.enabled` are `false`. When both maintenance and a hook are enabled,
+> `helm install`/`helm upgrade` prints a warning in its notes.
+
+> [!NOTE]
 > **Bundled PostgreSQL + hooks:** Helm cannot deploy a subchart before the parent's
 > `pre-install` hooks, so `postgresql.enabled: true` is not up when the Jobs run. For
 > dev/test, run PostgreSQL as a pre-install hook via `postgresql.commonAnnotations`
