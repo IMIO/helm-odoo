@@ -308,6 +308,36 @@ service:
   type: ClusterIP
   port: 80
 
+# Prometheus Operator ServiceMonitor for scraping Odoo metrics.
+# Disabled by default. Requires the Prometheus Operator CRDs
+# (monitoring.coreos.com/v1) to be present in the cluster and an Odoo endpoint
+# that serves metrics at `path` on the named `port` (e.g. a metrics-exporting
+# Odoo module). Selects the `component: server` Odoo Service on `odoo-http`; the
+# cron Service is excluded.
+serviceMonitor:
+  enabled: false
+  # Extra labels for the ServiceMonitor. Prometheus Operator commonly requires a
+  # `release:` label matching its serviceMonitorSelector, e.g.:
+  #   labels:
+  #     release: kube-prometheus-stack
+  labels: {}
+  # Extra annotations for the ServiceMonitor.
+  annotations: {}
+  # Service port NAME to scrape (must match a port on the Odoo Service).
+  port: odoo-http
+  # HTTP path exposing Prometheus metrics.
+  path: /metrics
+  # Scrape interval.
+  interval: 30s
+  # Scrape scheme (http or https).
+  scheme: http
+  # Optional per-scrape timeout (e.g. "10s"). Empty = operator default.
+  scrapeTimeout: ""
+  # Optional Prometheus relabeling applied before scraping.
+  relabelings: []
+  # Optional Prometheus relabeling applied to scraped metrics.
+  metricRelabelings: []
+
 ingress:
   enabled: false
   className: "public"
