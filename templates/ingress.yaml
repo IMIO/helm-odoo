@@ -14,25 +14,25 @@ metadata:
   {{- end }}
 spec:
   {{- if .Values.ingress.className }}
-  ingressClassName: {{ .Values.ingress.className }}
+  ingressClassName: {{ tpl (.Values.ingress.className | toString) $ }}
   {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
     {{- range .Values.ingress.tls }}
     - hosts:
         {{- range .hosts }}
-        - {{ . | quote }}
+        - {{ tpl (. | toString) $ | quote }}
         {{- end }}
-      secretName: {{ .secretName }}
+      secretName: {{ tpl (.secretName | toString) $ }}
     {{- end }}
   {{- end }}
   rules:
     {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
+    - host: {{ tpl (.host | toString) $ | quote }}
       http:
         paths:
           {{- range .paths }}
-          - path: {{ .path }}
+          - path: {{ tpl (.path | toString) $ }}
             pathType: {{ .pathType }}
             backend:
               service:

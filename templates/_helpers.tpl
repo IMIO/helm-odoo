@@ -2,7 +2,7 @@
 Expand the name of the chart.
 */}}
 {{- define "..name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- tpl (default .Chart.Name .Values.nameOverride | toString) $ | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
@@ -12,9 +12,9 @@ If release name contains chart name it will be used as a full name.
 */}}
 {{- define "..fullname" -}}
 {{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- tpl (.Values.fullnameOverride | toString) $ | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- $name := tpl (default .Chart.Name .Values.nameOverride | toString) $ }}
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -68,12 +68,15 @@ Resolve Odoo's database connection from the right source:
 - external (postgresql.enabled false): credentials come from externalDatabase.*
   ("..dbHost" fails fast if externalDatabase.host is not set).
 These take the root context (they need .Release / .Values).
+The host / name / user are rendered through "tpl", so those values may embed
+{{ .Values.* }} expressions (e.g. externalDatabase.name: "{{ .Values.instance_id }}").
+The password and port are intentionally NOT tpl-rendered (a secret / a number).
 */}}
 {{- define "..dbHost" -}}
 {{- if .Values.postgresql.enabled -}}
 {{- printf "%s-postgresql" .Release.Name -}}
 {{- else -}}
-{{- required "externalDatabase.host is required when postgresql.enabled is false" .Values.externalDatabase.host -}}
+{{- tpl (required "externalDatabase.host is required when postgresql.enabled is false" .Values.externalDatabase.host | toString) $ -}}
 {{- end -}}
 {{- end }}
 
@@ -82,11 +85,11 @@ These take the root context (they need .Release / .Values).
 {{- end }}
 
 {{- define "..dbName" -}}
-{{- if .Values.postgresql.enabled -}}{{ .Values.postgresql.auth.database }}{{- else -}}{{ .Values.externalDatabase.name }}{{- end -}}
+{{- if .Values.postgresql.enabled -}}{{ tpl (.Values.postgresql.auth.database | toString) $ }}{{- else -}}{{ tpl (.Values.externalDatabase.name | toString) $ }}{{- end -}}
 {{- end }}
 
 {{- define "..dbUser" -}}
-{{- if .Values.postgresql.enabled -}}{{ .Values.postgresql.auth.username }}{{- else -}}{{ .Values.externalDatabase.user }}{{- end -}}
+{{- if .Values.postgresql.enabled -}}{{ tpl (.Values.postgresql.auth.username | toString) $ }}{{- else -}}{{ tpl (.Values.externalDatabase.user | toString) $ }}{{- end -}}
 {{- end }}
 
 {{- define "..dbPassword" -}}
