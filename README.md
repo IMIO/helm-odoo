@@ -127,7 +127,7 @@ externalsecrets:
   Vault key to read that credential from a different location.
 - **External DB (`postgresql.enabled: false`):** the `<release>-postgresql-secret` is
   not rendered; leave `postgresqlKey` unset and set only `odooKey` — `db_password`
-  falls back to `odooKey` (the pre-1.4.0 behavior).
+  falls back to `odooKey` (the pre-2.0.0 behavior).
 
 > [!WARNING]
 > `existingSecret.enabled` and `externalsecrets.enabled` are mutually exclusive.
@@ -339,6 +339,41 @@ Feel free to contribute by making a [pull request](https://github.com/imio/helm-
 Please read the official [Helm Contribution Guide](https://github.com/helm/charts/blob/master/CONTRIBUTING.md) from Helm for more information on how you can contribute to this Chart.
 
 ## Upgrading
+
+### To 2.0.0
+
+`externalsecrets.properties.odoo.postgresqlPassword` and `.adminPasswd` changed from a bare
+string (the remoteRef *property* name) to a map `{key, property}`, so each credential can now
+pick its own Vault `key` — this is what lets the DB password be
+[shared with the PostgreSQL secret](#use-external-secretsio-for-odoo-configuration) instead of
+duplicated. If you overrode either property name, convert it:
+
+```yaml
+# before (<= 1.3.0)
+externalsecrets:
+  properties:
+    odoo:
+      postgresqlPassword: postgresql-password
+      adminPasswd: odoo-admin-passwd
+
+# after (2.0.0)
+externalsecrets:
+  properties:
+    odoo:
+      postgresqlPassword:
+        property: postgresql-password
+        # key: ""   # optional; "" -> postgresqlKey -> odooKey
+      adminPasswd:
+        property: odoo-admin-passwd
+        # key: ""   # optional; "" -> odooKey
+```
+
+If your override only repeated the defaults (`postgresql-password` / `odoo-admin-passwd`),
+just **remove** it and let the chart defaults apply; leaving these unset is also valid. Only
+`externalsecrets.enabled: true` users who set these are affected. Skipping the conversion
+makes `helm upgrade` fail at render time (`cannot overwrite table with non table` /
+`interface conversion: interface {} is string, not map`) — a blocking error, never a silent
+wrong value.
 
 ### To 1.0.0
 
