@@ -93,6 +93,42 @@ In the `values.yaml` file, set the `externalsecrets.enabled` parameter to `true`
 
 You need to have the external-secrets.io operator installed in your cluster. See the [external-secrets.io documentation](https://external-secrets.io/latest/) for more information.
 
+Two Vault keys are used: `postgresqlKey` (the PostgreSQL credentials — DB user
+password + superuser) and `odooKey` (Odoo's master `admin_passwd`). Each credential
+written into `odoo.conf` chooses its own key + property under
+`externalsecrets.properties.odoo`, so the **DB password is stored in Vault once and
+shared** with the PostgreSQL secret instead of being duplicated:
+
+```yaml
+externalsecrets:
+  enabled: true
+  secretStoreRef:
+    name: vault-backend
+  postgresqlKey: secret/data/odoo/db      # DB user password + superuser
+  odooKey: secret/data/odoo/app           # Odoo master password
+  properties:
+    postgresql:
+      password: postgresql-password
+      adminPassword: postgresql-admin-password
+    odoo:
+      postgresqlPassword:                 # odoo.conf db_password
+        key: ""                           # "" -> postgresqlKey (falls back to odooKey)
+        property: postgresql-password
+      adminPasswd:                        # odoo.conf admin_passwd
+        key: ""                           # "" -> odooKey
+        property: odoo-admin-passwd
+```
+
+- **Share the DB password (default):** leave `postgresqlPassword.key` empty. Both the
+  PostgreSQL secret and odoo.conf's `db_password` read `postgresqlKey` — one value in
+  Vault. To make *all* Odoo/DB secrets live in a single key, set
+  `postgresqlKey == odooKey`.
+- **Split keys:** set `postgresqlPassword.key` (or `adminPasswd.key`) to any other
+  Vault key to read that credential from a different location.
+- **External DB (`postgresql.enabled: false`):** the `<release>-postgresql-secret` is
+  not rendered; leave `postgresqlKey` unset and set only `odooKey` — `db_password`
+  falls back to `odooKey` (the pre-2.0.0 behavior).
+
 > [!WARNING]
 > `existingSecret.enabled` and `externalsecrets.enabled` are mutually exclusive.
 > Enabling both will cause `helm install`/`helm upgrade` to fail with an explicit error.
@@ -303,6 +339,41 @@ Feel free to contribute by making a [pull request](https://github.com/imio/helm-
 Please read the official [Helm Contribution Guide](https://github.com/helm/charts/blob/master/CONTRIBUTING.md) from Helm for more information on how you can contribute to this Chart.
 
 ## Upgrading
+
+### To 2.0.0
+
+`externalsecrets.properties.odoo.postgresqlPassword` and `.adminPasswd` changed from a bare
+string (the remoteRef *property* name) to a map `{key, property}`, so each credential can now
+pick its own Vault `key` — this is what lets the DB password be
+[shared with the PostgreSQL secret](#use-external-secretsio-for-odoo-configuration) instead of
+duplicated. If you overrode either property name, convert it:
+
+```yaml
+# before (<= 1.3.0)
+externalsecrets:
+  properties:
+    odoo:
+      postgresqlPassword: postgresql-password
+      adminPasswd: odoo-admin-passwd
+
+# after (2.0.0)
+externalsecrets:
+  properties:
+    odoo:
+      postgresqlPassword:
+        property: postgresql-password
+        # key: ""   # optional; "" -> postgresqlKey -> odooKey
+      adminPasswd:
+        property: odoo-admin-passwd
+        # key: ""   # optional; "" -> odooKey
+```
+
+If your override only repeated the defaults (`postgresql-password` / `odoo-admin-passwd`),
+just **remove** it and let the chart defaults apply; leaving these unset is also valid. Only
+`externalsecrets.enabled: true` users who set these are affected. Skipping the conversion
+makes `helm upgrade` fail at render time (`cannot overwrite table with non table` /
+`interface conversion: interface {} is string, not map`) — a blocking error, never a silent
+wrong value.
 
 ### To 1.0.0
 

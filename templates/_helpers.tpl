@@ -150,6 +150,29 @@ max_cron_threads = {{ .Values.odoo.max_cron_threads | int }}
 {{- end }}
 
 {{/*
+data: entries for the odoo.conf ExternalSecret (shared by the normal and the hook
+copy in externalsecrets.yaml — single source of truth). Each credential picks its
+own Vault key so the DB password can be shared with the PostgreSQL secret:
+  db_password  (postgresqlPassword): explicit key -> postgresqlKey -> odooKey
+  admin_passwd (odooAdminPasswd):    explicit key -> odooKey
+The resolved keys are rendered through "tpl" (context $) like the other
+identity/routing values; the "property" names are NOT tpl-rendered. `dig` gives
+nil-safe access to the (possibly-overridden) properties.odoo.* maps.
+Call with the root context; render under `data:` with `nindent 2`.
+*/}}
+{{- define "..externalsecrets.odooConfData" -}}
+{{- $es := .Values.externalsecrets -}}
+- secretKey: postgresqlPassword
+  remoteRef:
+    key: {{ tpl (default (default $es.odooKey $es.postgresqlKey) (dig "postgresqlPassword" "key" "" $es.properties.odoo) | toString) $ }}
+    property: {{ dig "postgresqlPassword" "property" "postgresql-password" $es.properties.odoo }}
+- secretKey: odooAdminPasswd
+  remoteRef:
+    key: {{ tpl (default $es.odooKey (dig "adminPasswd" "key" "" $es.properties.odoo) | toString) $ }}
+    property: {{ dig "adminPasswd" "property" "odoo-admin-passwd" $es.properties.odoo }}
+{{- end }}
+
+{{/*
 Shared spec for the Odoo init/update hook Job containers.
 Renders image, pull policy, the odoo.conf mount and extraEnv/extraEnvFrom — but
 NOT name or command (each Job sets those). Filestore (PVC) is intentionally not
