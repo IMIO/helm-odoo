@@ -13,12 +13,12 @@ This [Helm](https://helm.sh/) chart installs `Odoo` in a [Kubernetes](https://ku
 ## Prerequisites
 
 > [!NOTE]
-> For production environments, it is recommended to use [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg) for PostgreSQL. The bundled chart is primarily intended for testing and development purposes, do not use it in production. Be also aware of the upcoming changes to the bitnami catalog described in this [issue](https://github.com/bitnami/containers/issues/83267). 
+> For production environments, it is recommended to use [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg) for PostgreSQL. The bundled chart is primarily intended for testing and development purposes, do not use it in production.
 
 - Kubernetes cluster 1.25+
 - Helm 3.8.0+
 - PV provisioner support in the underlying infrastructure.
-- Postgres DB (This chart can install a postgresql database based on the bitnami/postgresql chart). We use it for testing purposes.
+- Postgres DB (This chart can install a PostgreSQL database based on the [CloudPirates `postgres`](https://github.com/CloudPirates-io/helm-charts/tree/main/charts/postgres) chart, pinned to PostgreSQL 17). We use it for testing purposes.
 
 ## Why do we not use the bitnami/odoo chart?
 
@@ -65,12 +65,16 @@ See the [values.yaml](values.yaml) file for more information.
 
 Database configuration is split into two clearly-scoped sections:
 
-- **`postgresql.*`** — configures the **bundled** bitnami PostgreSQL subchart, used
-  only when `postgresql.enabled: true` (intended for dev/test). Odoo's connection is
+- **`postgresql.*`** — configures the **bundled** [CloudPirates `postgres`](https://github.com/CloudPirates-io/helm-charts/tree/main/charts/postgres)
+  subchart (official `docker.io/postgres` image, pinned to PostgreSQL **17.x** via
+  `postgresql.image.tag`), used only when `postgresql.enabled: true` (intended for
+  dev/test). The subchart is aliased to `postgresql`, so the values key and the
+  `<release-name>-postgresql` resource names are preserved. Odoo's connection is
   taken from `postgresql.auth.*`, the host is auto-derived as `<release-name>-postgresql`
-  and the port is `5432`. Bundled credentials can be set inline via
-  `postgresql.auth.password` / `postgresql.auth.postgresPassword`, or supplied through
-  `postgresql.auth.existingSecret` (bitnami-native).
+  and the port is `5432`. `postgresql.auth.username` / `.password` / `.database`
+  configure the **superuser** (this chart has no separate `postgresPassword`; the named
+  user is the superuser and gets a same-named database), or supply the password through
+  `postgresql.auth.existingSecret` (default key `postgres-password`).
 - **`externalDatabase.*`** — connection settings for an **external** PostgreSQL
   (e.g. CloudNativePG), used only when `postgresql.enabled: false`. `externalDatabase.host`
   is required in this mode (templating fails fast if it is empty).
@@ -251,8 +255,7 @@ things still need explicit configuration for production:
   filestore must be `ReadWriteMany`.
 - [ ] **External database** — set `postgresql.enabled: false` and configure
   `externalDatabase.*` (e.g. [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg)).
-  The bundled bitnami PostgreSQL pulls from the deprecated `bitnamilegacy` registry
-  and is dev/test only.
+  The bundled CloudPirates PostgreSQL uses ephemeral storage and is dev/test only.
 - [ ] **Secrets** — use `existingSecret.enabled: true` or `externalsecrets.enabled: true`
   instead of inline `odoo.admin_passwd` / `externalDatabase.password` so credentials
   never live in plaintext values.
@@ -340,6 +343,31 @@ Please read the official [Helm Contribution Guide](https://github.com/helm/chart
 
 ## Upgrading
 
+### To 3.0.0
+
+The **bundled** PostgreSQL subchart was swapped from `bitnami/postgresql` (which moved to the
+unmaintained `bitnamilegacy` Docker Hub namespace) to the maintained
+[CloudPirates `postgres`](https://github.com/CloudPirates-io/helm-charts/tree/main/charts/postgres)
+chart on the official `docker.io/postgres` image, pinned to **PostgreSQL 17**. This only affects
+`postgresql.enabled: true` (bundled DB, dev/test) — **external-database users
+(`postgresql.enabled: false` + `externalDatabase.*`) are unaffected.**
+
+The new chart is aliased to `postgresql`, so the values key stays `postgresql.*` and the generated
+resource names are unchanged (`<release>-postgresql` Service/Secret, port `5432`) — no connection
+changes are needed. The `postgresql.*` **schema** changed, though:
+
+- **Removed** `postgresql.auth.postgresPassword` — this chart has a single **superuser**.
+  `postgresql.auth.username` / `.password` / `.database` now configure that superuser (Odoo connects
+  as it and gets a same-named database).
+- **Removed** `postgresql.global.security.allowInsecureImages` and `postgresql.image.repository`
+  (bitnami-legacy specifics) — no longer needed.
+- **Added** `postgresql.image.tag`, pinned to a PostgreSQL 17.x digest.
+- **Renamed** `postgresql.primary.persistence` → `postgresql.persistence` (still `enabled: false`,
+  ephemeral, for dev/test).
+
+The bundled DB is ephemeral and dev/test only, so there is no data migration — just re-render with
+the new values. `helm dep up` will pull the new subchart (removing the old bitnami tarball).
+
 ### To 2.0.0
 
 `externalsecrets.properties.odoo.postgresqlPassword` and `.adminPasswd` changed from a bare
@@ -382,7 +410,7 @@ wrong value.
 > - **Before upgrading, delete the old Deployment(s)** — the selector is now immutable:
 >   `kubectl delete deployment <release>-odoo <release>-odoo-cron -n <ns> --ignore-not-found`
 > - **DB connection values moved:** `postgresql.host/port/auth` → `externalDatabase.*` (external DB),
->   while `postgresql.*` now configures only the bundled bitnami subchart.
+>   while `postgresql.*` now configures only the bundled PostgreSQL subchart.
 > - **`odoo.update.enabled` now defaults to `false`** — init/update run as Helm hook Jobs, not in the main pod.
 > - **Containers are non-root by default** (official Odoo image: uid 100 / gid 101) and get a dedicated
 >   ServiceAccount with its token disabled. Custom images with a different user must override
@@ -394,7 +422,7 @@ This is a breaking release. There are three independent migrations to apply to y
 
 The single `postgresql:` section that previously held both the bundled-chart config and
 the database connection settings has been split into two clearly-scoped sections
-(`postgresql.*` for the bundled bitnami subchart, `externalDatabase.*` for an external
+(`postgresql.*` for the bundled PostgreSQL subchart, `externalDatabase.*` for an external
 database). Update your values as follows:
 
 - `postgresql.host` / `postgresql.port` → `externalDatabase.host` / `externalDatabase.port`

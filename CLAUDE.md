@@ -16,7 +16,7 @@ helm lint -f test/local.yaml .
 # Render templates (dry-run)
 helm template odoo . -f test/local.yaml --namespace odoo
 
-# Update dependencies (PostgreSQL from bitnami)
+# Update dependencies (PostgreSQL from CloudPirates)
 helm dep up
 
 # Deploy to a local cluster
@@ -95,7 +95,7 @@ need is itself provisioned as a pre-install hook; a pod that mounts a not-yet-cr
     the Job's mount retries until it lands. (Helm's hook wait only blocks on Pods/Jobs, not CR status, so this
     relies on the operator syncing within `--timeout`.)
 - **Bundled PostgreSQL** — Helm cannot deploy a subchart before the parent's pre-install hooks, so the bundled
-  bitnami Postgres (`postgresql.enabled: true`) is not up when the hooks run. To use it with the hooks (dev/test),
+  Postgres (`postgresql.enabled: true`) is not up when the hooks run. To use it with the hooks (dev/test),
   run Postgres itself as a pre-install hook via `postgresql.commonAnnotations` (`helm.sh/hook: pre-install`,
   weight below `0`) — see `test/local.yaml`. Production should use an external DB. The Jobs' DB connection
   resolves through the `..dbHost`/`..dbPort`/… helpers.
@@ -140,7 +140,7 @@ Both liveness and readiness probes for Odoo hit `/web/health` on the Odoo HTTP p
 
 Database config is split into two clearly-scoped sections, with `postgresql.enabled` selecting which one Odoo reads:
 
-- `postgresql.*` — the **bundled** bitnami subchart (OCI registry), used when `postgresql.enabled: true` (dev/test). Odoo's connection comes from `postgresql.auth.*`, the host is auto-derived as `<release>-postgresql`, port `5432`. The `global.security.allowInsecureImages: true` setting is required due to the bitnami legacy repo. Bundled credentials are bitnami-native (inline `auth.password`/`auth.postgresPassword` or `auth.existingSecret`).
+- `postgresql.*` — the **bundled** [CloudPirates `postgres`](https://github.com/CloudPirates-io/helm-charts/tree/main/charts/postgres) subchart (OCI registry, official `docker.io/postgres` image), used when `postgresql.enabled: true` (dev/test). Aliased to `postgresql` in `Chart.yaml`, so the values key and the `<release>-postgresql` resource names are preserved. Odoo's connection comes from `postgresql.auth.*`, the host is auto-derived as `<release>-postgresql`, port `5432`. The image tag is pinned to a PostgreSQL **17.x** digest via `postgresql.image.tag`. Credentials: `auth.username`/`.password`/`.database` configure the **superuser** (this chart has no separate `postgresPassword`; the named user is the superuser and gets a same-named DB), or supply the password via `auth.existingSecret` (key `postgres-password`).
 - `externalDatabase.*` — connection settings for an **external** PostgreSQL (e.g., CloudNativePG, recommended for production), used when `postgresql.enabled: false`. `externalDatabase.host` is required in this mode.
 
 Connection resolution lives in the `..dbHost`/`..dbPort`/`..dbName`/`..dbUser`/`..dbPassword` helpers in `_helpers.tpl`, which switch source based on `postgresql.enabled`.
@@ -165,4 +165,4 @@ Connection resolution lives in the `..dbHost`/`..dbPort`/`..dbName`/`..dbUser`/`
 - **Push / PR**: Runs `helm lint` + test via `IMIO/gha/helm-test-notify@v6`
 - **Release**: Triggered on successful test on tag; publishes to `https://imio.github.io/helm-charts` via `IMIO/gha/helm-release-notify@v6`
 
-Before creating and pushing a git tag, ensure `version` in `Chart.yaml` matches the tag. The release workflow is triggered by tag pushes and builds dependencies (bitnami) and packages the chart automatically.
+Before creating and pushing a git tag, ensure `version` in `Chart.yaml` matches the tag. The release workflow is triggered by tag pushes and builds dependencies (the CloudPirates `postgres` OCI subchart) and packages the chart automatically.

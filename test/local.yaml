@@ -106,8 +106,9 @@ externalDatabase:
   user: odoo
   password: mySecuredPassword
 
-# Bundled bitnami PostgreSQL for local testing.
-## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
+# Bundled CloudPirates PostgreSQL for local testing (image tag pinned to PG 17.x
+# in the base values.yaml, which this file layers on top of).
+## ref: https://github.com/CloudPirates-io/helm-charts/tree/main/charts/postgres
 postgresql:
   enabled: true
   # The Odoo init/update hooks run at pre-install and wait for the DB. Helm has
@@ -120,15 +121,14 @@ postgresql:
     helm.sh/hook: pre-install
     helm.sh/hook-weight: "-20"
   auth:
+    # username/password/database configure the SUPERUSER (no separate postgresPassword).
     # Database name should be false if you are using a multi-tenant setup
     # In this case, we are using the dbfilter option in the odoo section
     database: odoo
     username: odoo
     password: mySecuredPassword
-    postgresPassword: mySecuredPassword
-  primary:
-    persistence:
-      enabled: false
+  persistence:
+    enabled: false
 
 # Use an existing secret for the Odoo configuration instead of generating one
 existingSecret:
@@ -219,7 +219,7 @@ extraEnv:
     value: "test"
 
 extraEnvFrom:
-  # Bundled bitnami DB self-manages this secret (<release>-postgresql)
+  # Bundled CloudPirates DB self-manages this secret (<release>-postgresql)
   - secretRef:
       name: odoo-postgresql
 
