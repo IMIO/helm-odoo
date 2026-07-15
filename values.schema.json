@@ -115,15 +115,15 @@
         },
         "dbfilter": {
           "description": "A regex string, or false to disable (single-tenant).",
-          "type": ["string", "boolean"]
+          "anyOf": [{ "type": "string" }, { "const": false }]
         },
         "db_name": {
           "description": "A database name, or false for a multi-tenant (dbfilter) setup.",
-          "type": ["string", "boolean"]
+          "anyOf": [{ "type": "string" }, { "const": false }]
         },
         "db_maxconn": { "type": "integer", "minimum": 0 },
         "db_replica_host": { "type": "string" },
-        "db_replica_port": { "type": "integer", "minimum": 0 },
+        "db_replica_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
         "max_cron_threads": { "type": "integer", "minimum": 0 },
         "log_level": { "type": "string" },
         "log_handler": { "type": "string" }
@@ -167,7 +167,7 @@
           "enum": ["Allow", "Forbid", "Replace"]
         },
         "backoffLimit": { "type": "integer", "minimum": 0 },
-        "activeDeadlineSeconds": { "type": "integer", "minimum": 0 },
+        "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
         "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
         "restartPolicy": {
@@ -181,7 +181,7 @@
       "type": "object",
       "properties": {
         "host": { "type": "string" },
-        "port": { "type": "integer", "minimum": 0 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
         "name": { "type": "string" },
         "user": { "type": "string" },
         "password": { "type": "string" }
@@ -237,7 +237,7 @@
           "type": "string",
           "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
         },
-        "port": { "type": "integer", "minimum": 0 }
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
       }
     },
     "serviceMonitor": {
