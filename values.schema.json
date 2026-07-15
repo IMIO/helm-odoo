@@ -1,0 +1,346 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IMIO Odoo Helm chart values",
+  "description": "Moderate-guardrail schema. Type-checks documented sections and enforces high-value enums, while staying permissive at the root, on the postgresql subchart, and on k8s-freeform blocks.",
+  "type": "object",
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string" },
+        "tag": { "type": "string" },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        },
+        "pullSecret": { "type": "string" }
+      }
+    },
+    "imagePullSecrets": { "type": "array" },
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["Recreate", "RollingUpdate"]
+        }
+      }
+    },
+    "nginx": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"]
+            },
+            "pullSecret": { "type": "string" }
+          }
+        },
+        "containerSecurityContext": { "type": "object" },
+        "resources": { "type": "object" },
+        "livenessProbe": { "type": "object" },
+        "readinessProbe": { "type": "object" }
+      }
+    },
+    "odoo": {
+      "type": "object",
+      "properties": {
+        "init": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "modules": { "type": "string" }
+          }
+        },
+        "update": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "modules": { "type": "string" },
+            "maintenancePage": { "type": "boolean" }
+          }
+        },
+        "hooks": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "backoffLimit": { "type": "integer", "minimum": 0 },
+            "ttlSecondsAfterFinished": { "type": "integer", "minimum": 0 },
+            "waitForDb": { "type": "boolean" },
+            "kubectlImage": { "type": "string" }
+          }
+        },
+        "server_wide_modules": { "type": "string" },
+        "admin_passwd": { "type": "string" },
+        "proxy_mode": {
+          "description": "Odoo string-boolean, e.g. \"True\"/\"False\".",
+          "type": "string"
+        },
+        "workers": { "type": "integer", "minimum": 0 },
+        "limit_memory_soft": { "type": "integer", "minimum": 0 },
+        "limit_memory_hard": { "type": "integer", "minimum": 0 },
+        "limit_request": { "type": "integer", "minimum": 0 },
+        "limit_time_cpu": { "type": "integer", "minimum": 0 },
+        "limit_time_real": { "type": "integer", "minimum": 0 },
+        "limit_time_real_cron": {
+          "description": "-1 disables the limit, so no minimum.",
+          "type": "integer"
+        },
+        "list_db": {
+          "description": "Odoo string-boolean, e.g. \"True\"/\"False\".",
+          "type": "string"
+        },
+        "addons_path": { "type": "string" },
+        "smtp_server": { "type": "string" },
+        "load_language": { "type": "string" },
+        "without_demo": {
+          "description": "\"all\"/module list, or a boolean.",
+          "type": ["string", "boolean"]
+        },
+        "dbfilter": {
+          "description": "A regex string, or false to disable (single-tenant).",
+          "type": ["string", "boolean"]
+        },
+        "db_name": {
+          "description": "A database name, or false for a multi-tenant (dbfilter) setup.",
+          "type": ["string", "boolean"]
+        },
+        "db_maxconn": { "type": "integer", "minimum": 0 },
+        "db_replica_host": { "type": "string" },
+        "db_replica_port": { "type": "integer", "minimum": 0 },
+        "max_cron_threads": { "type": "integer", "minimum": 0 },
+        "log_level": { "type": "string" },
+        "log_handler": { "type": "string" }
+      }
+    },
+    "cron": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicaCount": { "type": "integer", "minimum": 0 },
+        "strategy": {
+          "type": "string",
+          "enum": ["Recreate", "RollingUpdate"]
+        },
+        "max_cron_threads": { "type": "integer", "minimum": 0 },
+        "workers": { "type": "integer", "minimum": 0 },
+        "resources": { "type": "object" },
+        "extraEnv": { "type": "array" },
+        "extraEnvFrom": { "type": "array" },
+        "extraInitContainers": { "type": "array" },
+        "extraContainers": { "type": "array" },
+        "extraVolumes": { "type": "array" },
+        "extraVolumeMounts": { "type": "array" },
+        "livenessProbe": { "type": "object" }
+      }
+    },
+    "rolloutRestart": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "schedule": { "type": "string" },
+        "targets": { "type": "array" },
+        "image": { "type": "string" },
+        "imagePullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        },
+        "timeout": { "type": "string" },
+        "concurrencyPolicy": {
+          "type": "string",
+          "enum": ["Allow", "Forbid", "Replace"]
+        },
+        "backoffLimit": { "type": "integer", "minimum": 0 },
+        "activeDeadlineSeconds": { "type": "integer", "minimum": 0 },
+        "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "restartPolicy": {
+          "type": "string",
+          "enum": ["Never", "OnFailure"]
+        },
+        "resources": { "type": "object" }
+      }
+    },
+    "externalDatabase": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string" },
+        "user": { "type": "string" },
+        "password": { "type": "string" }
+      }
+    },
+    "postgresql": {
+      "description": "Bundled CloudPirates postgres subchart. Left open — the subchart owns and validates its own value surface.",
+      "type": "object"
+    },
+    "existingSecret": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "externalsecrets": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "secretStoreRef": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" }
+          }
+        },
+        "postgresqlKey": { "type": ["string", "null"] },
+        "odooKey": { "type": ["string", "null"] },
+        "properties": {
+          "type": "object",
+          "properties": {
+            "postgresql": { "type": "object" },
+            "odoo": { "type": "object" }
+          }
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "accessMode": { "type": "string" },
+        "storageClass": { "type": "string" },
+        "size": { "type": "string" },
+        "existingClaim": { "type": "string" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
+        },
+        "port": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "serviceMonitor": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "port": {
+          "description": "Service port NAME (e.g. \"odoo-http\").",
+          "type": "string"
+        },
+        "path": { "type": "string" },
+        "interval": { "type": "string" },
+        "scheme": {
+          "type": "string",
+          "enum": ["http", "https"]
+        },
+        "scrapeTimeout": { "type": "string" },
+        "relabelings": { "type": "array" },
+        "metricRelabelings": { "type": "array" }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "hosts": { "type": "array" },
+        "tls": { "type": "array" }
+      }
+    },
+    "resources": { "type": "object" },
+    "livenessProbe": { "type": "object" },
+    "readinessProbe": { "type": "object" },
+    "startupProbe": { "type": "object" },
+    "autoscaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer", "minimum": 0 },
+        "maxReplicas": { "type": "integer", "minimum": 0 },
+        "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 0 },
+        "targetMemoryUtilizationPercentage": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "extraEnv": { "type": "array" },
+    "extraEnvFrom": { "type": "array" },
+    "extraInitContainers": { "type": "array" },
+    "extraContainers": { "type": "array" },
+    "extraVolumes": { "type": "array" },
+    "extraVolumeMounts": { "type": "array" },
+    "podAnnotations": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "automountServiceAccountToken": { "type": "boolean" }
+      }
+    },
+    "securityContext": { "type": "object" },
+    "containerSecurityContext": { "type": "object" },
+    "nodeSelector": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "tolerations": { "type": "array" },
+    "affinity": { "type": "object" },
+    "maintenance": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "signature": { "type": "string" },
+        "name": { "type": "string" },
+        "customTemplate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "htmlKey": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
