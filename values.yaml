@@ -219,19 +219,13 @@ externalDatabase:
   ## it out of plaintext values.
   password: mySecuredPassword
 
-# Bundled PostgreSQL (bitnami subchart) — DEV/TEST ONLY.
-# Set enabled: false to use an external database (configure externalDatabase above).
-# Passwords can be set inline via auth.password/auth.postgresPassword, OR supplied
-# through auth.existingSecret (bitnami-native).
-#
-# !! DEPRECATION WARNING !!
-# This subchart pulls from the `bitnamilegacy/postgresql` image. In 2025 Bitnami
-# moved its free Docker Hub catalog to a "legacy" namespace that receives no
-# further updates/security patches (and may be removed). Do NOT run this in
-# production — set postgresql.enabled: false and point externalDatabase.* at a
-# maintained PostgreSQL (e.g. CloudNativePG). See
-# https://github.com/bitnami/containers/issues/83267
-## ref: https://github.com/bitnami/charts/blob/master/bitnami/postgresql/values.yaml
+# Bundled PostgreSQL (CloudPirates `postgres` subchart) — DEV/TEST ONLY.
+# A maintained community chart running the official docker.io/postgres image,
+# aliased to "postgresql" in Chart.yaml (so this key and the <release>-postgresql
+# resource names are preserved). Set enabled: false to use an external database
+# (configure externalDatabase above). Do NOT run the bundled DB in production —
+# use an external, managed PostgreSQL (e.g. CloudNativePG) instead.
+## ref: https://github.com/CloudPirates-io/helm-charts/tree/main/charts/postgres
 postgresql:
   enabled: true
   # The Odoo init/update hooks run at pre-install and wait for the DB. Helm has
@@ -243,33 +237,28 @@ postgresql:
   commonAnnotations:
     helm.sh/hook: pre-install
     helm.sh/hook-weight: "-20"
-  global:
-    security:
-      # Required so the bitnami chart accepts the non-bitnami `bitnamilegacy`
-      # image override below. This relaxes the subchart's image verification and
-      # is a deliberate DEV/TEST concession — another reason not to use the
-      # bundled DB in production.
-      allowInsecureImages: true
   image:
-    repository: bitnamilegacy/postgresql
+    # PostgreSQL 17 (latest 17.x), digest-pinned. The CloudPirates chart defaults
+    # to PG 18; we pin the tag to the official postgres:17.x image + its manifest
+    # digest. Bump both together to move to a newer 17.x.
+    tag: "17.10@sha256:ebba4f4de37f08f138f97c1443c987a435e783177afedcc4aaf2da1930fbc37a"
+    imagePullPolicy: IfNotPresent
   auth:
-    # Database name should be set as false if you are using a multi-tenant setup
-    # In this case, we are using the dbfilter option in the odoo section
-    database: odoo
+    # username/password/database configure the SUPERUSER created at init (this
+    # chart has no separate postgresPassword; the named user IS the superuser and
+    # gets a same-named database). Odoo connects as this user.
+    # Set database as false for a multi-tenant setup (dbfilter in the odoo section).
     username: odoo
-    # password: managed by a Kubernetes secret, you could use an existing one
     password: mySecuredPassword
-    # postgresPassword is the superuser (postgres) password
-    postgresPassword: mySecuredPassword
-    # To supply credentials from an existing secret instead of the inline values
-    # above, uncomment and point at your secret:
+    database: odoo
+    # To supply the password from an existing secret instead of the inline value
+    # above (e.g. the externalsecrets bundled secret <fullname>-postgresql-secret),
+    # uncomment and point at it (default key: postgres-password):
     # existingSecret: my-db-secret
     # secretKeys:
     #   adminPasswordKey: postgres-password
-    #   userPasswordKey: password
-  primary:
-    persistence:
-      enabled: false
+  persistence:
+    enabled: false
 
 # Use an existing secret for the Odoo configuration instead of generating one
 existingSecret:
@@ -284,10 +273,14 @@ externalsecrets:
   enabled: false
   secretStoreRef:
     name: vault-backend
-  # Vault key holding the PostgreSQL credentials (DB user password + superuser).
-  # Consumed by the bundled-PostgreSQL secret, and the DEFAULT source for the DB
+  # Vault key holding the PostgreSQL password. It is the DEFAULT source for the DB
   # password written into odoo.conf — so the password lives in Vault ONCE and is
-  # shared with the PostgreSQL secret instead of being duplicated under odooKey.
+  # shared instead of being duplicated under odooKey. It also feeds the bundled
+  # <fullname>-postgresql-secret ExternalSecret; to have the bundled DB consume it,
+  # set postgresql.auth.existingSecret: <fullname>-postgresql-secret and
+  # auth.secretKeys.adminPasswordKey: postgresql-password (the CloudPirates chart
+  # has a single superuser password, so the admin-password entry below is unused
+  # unless you point a credential at it).
   postgresqlKey:
   # Vault key holding Odoo's own secrets (the master admin_passwd).
   odooKey:

@@ -19,4 +19,3 @@ jobs:
           MATTERMOST_WEBHOOK_URL: ${{ secrets.COMMON_MATTERMOST_WEBHOOK_URL }}
           APP_ID: ${{ secrets.APP_ID }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          HELM_DEPENDENCIES: bitnami,https://charts.bitnami.com/bitnami

@@ -3,7 +3,7 @@ apiVersion: v2
 name: odoo
 description: An opiniated Helm Chart for deploying Odoo
 type: application
-version: 2.0.0
+version: 3.0.0
 appVersion: "18.0"
 sources:
   - https://github.com/odoo/odoo
@@ -14,8 +14,12 @@ maintainers:
   - name: IMIO
     url: https://github.com/IMIO/
 dependencies:
-  - name: postgresql
+  # CloudPirates community PostgreSQL chart (official docker.io/postgres image).
+  # Aliased to "postgresql" so the parent keeps the postgresql.* values key and the
+  # generated resources stay named <release>-postgresql (Helm sets the aliased
+  # subchart's .Chart.Name to the alias). Bundled DB is DEV/TEST only.
+  - name: postgres
     alias: postgresql
-    version: 14.x.x
-    repository: oci://registry-1.docker.io/bitnamicharts
+    version: 0.19.8
+    repository: oci://registry-1.docker.io/cloudpirates
     condition: postgresql.enabled
