@@ -34,6 +34,10 @@ helm repo add imio https://imio.github.io/helm-charts
 helm repo update
 ```
 
+### Verify the chart signature
+
+Since release `3.0.1`, packaged charts are signed. See [IMIO/helm-charts — Verify chart signatures](https://github.com/IMIO/helm-charts#verify-chart-signatures) for how to verify.
+
 ### Configure the chart
 
 The following items can be set via `--set` flag during installation or configured by editing the `values.yaml` directly (need to download the chart first).
