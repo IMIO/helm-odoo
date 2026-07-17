@@ -40,6 +40,9 @@ spec:
         {{- if .Values.odoo.hooks.waitForDb }}
         {{- include "..hookWaitForDbInitContainer" . | nindent 8 }}
         {{- end }}
+        {{- with .Values.extraInitContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       containers:
         - name: odoo-init
           {{- include "..hookOdooContainer" . | nindent 10 }}

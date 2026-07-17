@@ -174,10 +174,12 @@ Call with the root context; render under `data:` with `nindent 2`.
 
 {{/*
 Shared spec for the Odoo init/update hook Job containers.
-Renders image, pull policy, the odoo.conf mount and extraEnv/extraEnvFrom — but
-NOT name or command (each Job sets those). Filestore (PVC) is intentionally not
-mounted: the hooks only touch the database, and skipping the RWO volume avoids
-contention with the running Odoo deployment. Call with the root context.
+Renders image, pull policy, the odoo.conf mount, extraVolumeMounts and
+extraEnv/extraEnvFrom — but NOT name or command (each Job sets those). Filestore
+(PVC) is intentionally not mounted: the hooks only touch the database, and
+skipping the RWO volume avoids contention with the running Odoo deployment. The
+extra* blocks mirror the web/cron workloads so values-driven additions (e.g. a
+CA-trust bundle) are present in the hook pods too. Call with the root context.
 */}}
 {{- define "..hookOdooContainer" -}}
 image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -189,6 +191,9 @@ volumeMounts:
     mountPath: /etc/odoo/odoo.conf
     subPath: odoo.conf
     readOnly: true
+{{- with .Values.extraVolumeMounts }}
+{{- toYaml . | nindent 2 }}
+{{- end }}
 {{- if .Values.extraEnv }}
 env:
 {{- toYaml .Values.extraEnv | nindent 2 }}
@@ -200,7 +205,8 @@ envFrom:
 {{- end }}
 
 {{/*
-Volumes for the init/update hook Jobs: the odoo.conf secret. Call with root context.
+Volumes for the init/update hook Jobs: the odoo.conf secret plus any extraVolumes
+(mirroring the web/cron workloads). Call with root context.
 */}}
 {{- define "..hookVolumes" -}}
 - name: {{ include "..fullname" . }}-odoo-conf
@@ -211,6 +217,9 @@ Volumes for the init/update hook Jobs: the odoo.conf secret. Call with root cont
         the runtime <fullname>-odoo-conf is a NORMAL resource, applied only after
         pre-install hooks, so it is not yet available to the Jobs. */}}
     secretName: "{{ include "..fullname" . }}-odoo-conf{{ if not .Values.existingSecret.enabled }}-hook{{ end }}"
+{{- with .Values.extraVolumes }}
+{{- toYaml . | nindent 0 }}
+{{- end }}
 {{- end }}
 
 {{/*
