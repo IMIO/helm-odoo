@@ -416,6 +416,7 @@ autoscaling:
 # extraEnvFrom:
 
 # Extra init containers
+# Also injected into the init/update hook Jobs (odoo.init / odoo.update)
 # extraInitContainers: []
 
 # Extra sidecar containers to add to the main Odoo pod
@@ -424,9 +425,11 @@ autoscaling:
 # extraContainers: []
 
 # Extra volumes
+# Also injected into the init/update hook Jobs (odoo.init / odoo.update)
 # extraVolumes: []
 
 # Extra volume mounts for the Odoo container
+# Also injected into the init/update hook Jobs (odoo.init / odoo.update)
 # extraVolumeMounts: []
 
 podAnnotations: {}
