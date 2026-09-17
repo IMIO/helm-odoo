@@ -215,6 +215,20 @@
             "postgresql": { "type": "object" },
             "odoo": { "type": "object" }
           }
+        },
+        "s3": {
+          "type": "object",
+          "description": "S3-compatible object storage credentials (Garage / MinIO / AWS) read from a single Vault key and injected as env vars into the Odoo container, the cron deployment and the init/update hook Jobs.",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "key": { "type": ["string", "null"] },
+            "secretName": { "type": ["string", "null"] },
+            "properties": {
+              "type": "object",
+              "description": "Environment variable name -> property looked up inside `key`. An entry set to null is skipped.",
+              "additionalProperties": { "type": ["string", "null"] }
+            }
+          }
         }
       }
     },

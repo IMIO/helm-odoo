@@ -301,6 +301,27 @@ externalsecrets:
       adminPasswd:
         key: ""
         property: odoo-admin-passwd
+  # S3-compatible object storage credentials (Garage / MinIO / AWS), pulled from a
+  # single Vault key and injected as environment variables into the Odoo container,
+  # the cron deployment and the init/update hook Jobs (so `odoo -i` / `odoo -u` can
+  # reach the bucket as well).
+  #
+  # "key" is tpl-rendered (context $), so one Vault key per instance can be derived
+  # from other values.
+  s3:
+    enabled: false
+    # Vault key holding the bucket credentials. Required when enabled. tpl-rendered.
+    key: ""
+    # Name of the generated Secret. Defaults to <fullname>-s3. tpl-rendered.
+    secretName: ""
+    # Environment variable name -> property looked up inside "key". Set an
+    # entry to null to drop it, or add entries to pull more fields.
+    properties:
+      S3_ACCESS_KEY: access_key_id
+      S3_SECRET_KEY: secret_access_key
+      S3_ENDPOINT: endpoint
+      S3_BUCKET_NAME: bucket
+      S3_REGION: region
 
 persistence:
   enabled: false
