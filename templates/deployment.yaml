@@ -93,9 +93,10 @@ spec:
           env:
           {{- toYaml .Values.extraEnv | nindent 12 }}
           {{- end }}
-          {{- if .Values.extraEnvFrom }}
+          {{- $envFrom := include "..envFromList" (dict "ctx" . "extraEnvFrom" .Values.extraEnvFrom "hook" false) }}
+          {{- if $envFrom }}
           envFrom:
-          {{- toYaml .Values.extraEnvFrom | nindent 12 }}
+{{ $envFrom | indent 12 }}
           {{- end }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}

@@ -45,7 +45,7 @@ Three separate services expose different ports:
 
 ### Templated values (`tpl`)
 
-A set of identity/routing value fields is rendered through `tpl` (context `$`), so a value may embed `{{ .Values.* }}` expressions referencing other values (e.g. `fullnameOverride: "{{ .Values.instance_id }}"`) — designed for an ArgoCD `ApplicationSet` that merges a shared defaults file with per-instance `values.yaml`. Rendered fields: `..name`/`..fullname` (`nameOverride`/`fullnameOverride`), the `..dbHost`/`..dbName`/`..dbUser` helpers (`externalDatabase.host`/`.name`/`.user` + `postgresql.auth.database`/`.username`), `externalsecrets.odooKey`/`postgresqlKey`/`secretStoreRef.name`/`properties.odoo.*.key` (the per-credential key overrides — the `property` names are **not** `tpl`-rendered), and ingress `className`/`hosts[].host`/`paths[].path`/`tls[].secretName`/`tls[].hosts[]`. **Never** `tpl`-rendered: any password (`..dbPassword`), `..dbPort`, and the `..odooConf` body — the last one carries literal external-secrets placeholders (`{{ .postgresqlPassword }}`, `{{ .odooAdminPasswd }}`) that must reach the operator unrendered. `tpl` on a value with no `{{ }}` returns it unchanged, so existing plain-value installs are unaffected.
+A set of identity/routing value fields is rendered through `tpl` (context `$`), so a value may embed `{{ .Values.* }}` expressions referencing other values (e.g. `fullnameOverride: "{{ .Values.instance_id }}"`) — designed for an ArgoCD `ApplicationSet` that merges a shared defaults file with per-instance `values.yaml`. Rendered fields: `..name`/`..fullname` (`nameOverride`/`fullnameOverride`), the `..dbHost`/`..dbName`/`..dbUser` helpers (`externalDatabase.host`/`.name`/`.user` + `postgresql.auth.database`/`.username`), `externalsecrets.odooKey`/`postgresqlKey`/`secretStoreRef.name`/`properties.odoo.*.key` (the per-credential key overrides — the `property` names are **not** `tpl`-rendered), `externalsecrets.s3.key`/`.secretName` (the `s3.properties` map is **not** `tpl`-rendered), and ingress `className`/`hosts[].host`/`paths[].path`/`tls[].secretName`/`tls[].hosts[]`. **Never** `tpl`-rendered: any password (`..dbPassword`), `..dbPort`, and the `..odooConf` body — the last one carries literal external-secrets placeholders (`{{ .postgresqlPassword }}`, `{{ .odooAdminPasswd }}`) that must reach the operator unrendered. `tpl` on a value with no `{{ }}` returns it unchanged, so existing plain-value installs are unaffected.
 
 ### Configuration and Secrets
 
@@ -62,6 +62,10 @@ The `odoo.conf` secret is **split by lifecycle** (generated + externalsecrets ba
 - `<fullname>-odoo-conf-hook` — a **hook** copy mounted only by the init/update Jobs (which run at `pre-install`, before normal resources exist). Rendered only when `init.enabled || update.enabled`.
 
 Both copies share the same `odoo.conf` content via the `..odooConf` helper (single source of truth). With `existingSecret`, the user's single pre-existing `<fullname>-odoo-conf` serves both — no hook copy. See the pre-install dependency model below for why the split exists.
+
+**S3 object storage credentials** (`externalsecrets.s3`, externalsecrets backend only, default off) are the one credential the chart delivers as **environment variables** rather than through `odoo.conf`. One Vault key (`s3.key`, `tpl`-rendered, so it can be derived per instance from `instance_id`) is fanned out into env vars by the `s3.properties` map (env var name → Vault property; defaults match the Garage layout, an entry set to `null` is skipped). Helpers: `..s3.enabled` (gate), `..s3SecretName` (default `<fullname>-s3`), `..externalsecrets.s3Data` (the shared `data:` list — render it with `trim | nindent 2`, each entry starts with a newline).
+
+Injection goes through `..envFromList`, called as `(dict "ctx" $ "extraEnvFrom" <list> "hook" <bool>)` — it returns the caller's `extraEnvFrom` plus the S3 `secretRef`, and is the single `envFrom` source for `deployment.yaml`, `cron-deployment.yaml` and `..hookOdooContainer`. The S3 secret is **split by lifecycle** exactly like `odoo.conf`: a normal `<fullname>-s3` plus, when `init.enabled || update.enabled`, a `pre-install,pre-upgrade` hook copy `<fullname>-s3-hook` that the Jobs consume (`hook: true`). Without the hook copy a fresh install with `init.enabled` would leave the Job pod in `CreateContainerConfigError` until Helm times out, since `envFrom` would point at a Secret that does not exist yet.
 
 Nginx configuration is in a ConfigMap (`templates/configmap.yaml`).
 
@@ -154,7 +158,7 @@ Connection resolution lives in the `..dbHost`/`..dbPort`/`..dbName`/`..dbUser`/`
 | `templates/deployment.yaml` | Main Odoo + Nginx pod definition |
 | `templates/secrets.yaml` | Generated `odoo.conf` secret — normal `<fullname>-odoo-conf` + gated hook `<fullname>-odoo-conf-hook` |
 | `templates/configmap.yaml` | Nginx config and maintenance page HTML |
-| `templates/externalsecrets.yaml` | Vault/external-secrets integration |
+| `templates/externalsecrets.yaml` | Vault/external-secrets integration — `odoo.conf` + optional S3 credentials (`externalsecrets.s3`), each with a gated hook copy |
 | `templates/servicemonitor.yaml` | Optional Prometheus Operator `ServiceMonitor` (gated on `serviceMonitor.enabled`) |
 | `templates/hooks/` | Init / update hook Jobs (both `pre-install,pre-upgrade`; init weight `0` < update weight `10`), RBAC, maintenance-page hook |
 | `templates/cronjob-rollout-restart.yaml` | Optional scheduled `kubectl rollout restart` CronJob + its dedicated `<fullname>-rollout-restart` RBAC (gated on `rolloutRestart.enabled`) |

@@ -75,9 +75,10 @@ spec:
           env:
             {{- toYaml .Values.cron.extraEnv | nindent 12 }}
           {{- end }}
-          {{- if .Values.cron.extraEnvFrom }}
+          {{- $envFrom := include "..envFromList" (dict "ctx" . "extraEnvFrom" .Values.cron.extraEnvFrom "hook" false) }}
+          {{- if $envFrom }}
           envFrom:
-            {{- toYaml .Values.cron.extraEnvFrom | nindent 12 }}
+{{ $envFrom | indent 12 }}
           {{- end }}
           livenessProbe:
             {{- toYaml .Values.cron.livenessProbe | nindent 12 }}
