@@ -106,6 +106,10 @@
           "description": "Odoo string-boolean, e.g. \"True\"/\"False\".",
           "type": "string"
         },
+        "unaccent": {
+          "description": "Odoo string-boolean, e.g. \"True\"/\"False\". Requires the PostgreSQL unaccent extension.",
+          "type": "string"
+        },
         "addons_path": { "type": "string" },
         "smtp_server": { "type": "string" },
         "load_language": { "type": "string" },

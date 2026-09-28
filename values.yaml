@@ -128,6 +128,8 @@ odoo:
   limit_time_real: 120
   limit_time_real_cron: -1
   list_db: "False"
+  # Accent-insensitive search via the PostgreSQL `unaccent` extension (Odoo string-boolean).
+  unaccent: "False"
   addons_path: /mnt/extra-addons
   smtp_server: ""
   load_language: en_US

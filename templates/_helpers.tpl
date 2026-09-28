@@ -138,6 +138,7 @@ db_replica_port = {{ .Values.odoo.db_replica_port | int }}
 without_demo = {{ .Values.odoo.without_demo }}
 admin_passwd = {{ .adminPasswd }}
 list_db = {{ .Values.odoo.list_db }}
+unaccent = {{ .Values.odoo.unaccent }}
 smtp_server = {{ .Values.odoo.smtp_server }}
 load_language = {{ .Values.odoo.load_language }}
 log_level = {{ .Values.odoo.log_level }}
