@@ -355,3 +355,63 @@ caller gates on .Values.odoo.hooks.waitForDb. Call with the root context.
       done
       echo "database is reachable"
 {{- end }}
+
+{{/*
+Render one Ingress routing to the <fullname>-nginx Service (or to the
+<fullname>-maintenance-page Service when maintenance.enabled). Shared by the
+main `ingress` and every `extraIngresses` entry. className, hosts[].host,
+paths[].path, tls[].secretName and tls[].hosts[] are tpl-rendered against the
+root context. Call with (dict "ctx" $ "name" <resource name> "ing" <spec>).
+*/}}
+{{- define "..ingress" -}}
+{{- $ctx := .ctx -}}
+{{- $ing := .ing -}}
+{{- $fullName := include "..fullname" $ctx -}}
+{{- $svcPort := $ctx.Values.service.port -}}
+{{- $maintenanceEnabled := $ctx.Values.maintenance.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "..labels" $ctx | nindent 4 }}
+  {{- with $ing.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if $ing.className }}
+  ingressClassName: {{ tpl ($ing.className | toString) $ctx }}
+  {{- end }}
+  {{- if $ing.tls }}
+  tls:
+    {{- range $ing.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ tpl (. | toString) $ctx | quote }}
+        {{- end }}
+      secretName: {{ tpl (.secretName | toString) $ctx }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range $ing.hosts }}
+    - host: {{ tpl (.host | toString) $ctx | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ tpl (.path | toString) $ctx }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                {{- if $maintenanceEnabled }}
+                name: {{ $fullName }}-maintenance-page
+                port:
+                  number: 80
+                {{- else }}
+                name: {{ $fullName }}-nginx
+                port:
+                  number: {{ $svcPort }}
+                {{- end}}
+          {{- end }}
+    {{- end }}
+{{- end }}

@@ -384,6 +384,26 @@ ingress:
     hosts:
       - odoo.example.com
 
+# Additional Ingresses for the same Odoo (e.g. a private URL next to the public one).
+# Each entry renders an Ingress named <fullname>-<name> with the same backend as
+# `ingress` (the nginx Service, or the maintenance page when maintenance.enabled).
+# Keys mirror `ingress` (no `enabled`: list an entry to render it), with the same
+# tpl rendering of className/hosts/paths/tls.
+extraIngresses: []
+#  - name: private
+#    className: "private"
+#    annotations:
+#      cert-manager.io/cluster-issuer: letsencrypt
+#    hosts:
+#      - host: odoo.internal.example.com
+#        paths:
+#          - path: /
+#            pathType: Prefix
+#    tls:
+#      - secretName: odoo-private-tls-secret
+#        hosts:
+#          - odoo.internal.example.com
+
 # Resources for the Odoo container
 resources: {}
   # limits:

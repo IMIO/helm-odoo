@@ -175,7 +175,7 @@ odoo:
 ```
 
 Runs `odoo -u <modules> -d <db> --stop-after-init` (requires an already-initialised
-DB). With `maintenancePage: true` (requires `ingress.enabled`), a temporary maintenance
+DB). With `maintenancePage: true` (requires `ingress.enabled` or `extraIngresses`), a temporary maintenance
 pod is created that the `<release>-nginx` Service routes to while Odoo is scaled to 0,
 without touching the ingress.
 
