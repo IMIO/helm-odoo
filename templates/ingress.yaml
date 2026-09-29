@@ -1,50 +1,16 @@
-{{- if .Values.ingress.enabled -}}
 {{- $fullName := include "..fullname" . -}}
-{{- $svcPort := .Values.service.port -}}
-{{- $maintenanceEnabled := .Values.maintenance.enabled -}}
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: {{ $fullName }}
-  labels:
-    {{- include "..labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-spec:
-  {{- if .Values.ingress.className }}
-  ingressClassName: {{ tpl (.Values.ingress.className | toString) $ }}
-  {{- end }}
-  {{- if .Values.ingress.tls }}
-  tls:
-    {{- range .Values.ingress.tls }}
-    - hosts:
-        {{- range .hosts }}
-        - {{ tpl (. | toString) $ | quote }}
-        {{- end }}
-      secretName: {{ tpl (.secretName | toString) $ }}
-    {{- end }}
-  {{- end }}
-  rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ tpl (.host | toString) $ | quote }}
-      http:
-        paths:
-          {{- range .paths }}
-          - path: {{ tpl (.path | toString) $ }}
-            pathType: {{ .pathType }}
-            backend:
-              service:
-                {{- if $maintenanceEnabled }}
-                name: {{ $fullName }}-maintenance-page
-                port:
-                  number: 80
-                {{- else }}
-                name: {{ $fullName }}-nginx
-                port:
-                  number: {{ $svcPort }}
-                {{- end}}
-          {{- end }}
-    {{- end }}
+{{- if .Values.ingress.enabled }}
+{{- include "..ingress" (dict "ctx" $ "name" $fullName "ing" .Values.ingress) }}
+{{- end }}
+{{- $seen := dict }}
+{{- range .Values.extraIngresses }}
+{{- if not .name }}
+{{- fail "extraIngresses: every entry needs a `name` (the Ingress is named <fullname>-<name>)" }}
+{{- end }}
+{{- if hasKey $seen (toString .name) }}
+{{- fail (printf "extraIngresses: duplicate name %q (each entry renders <fullname>-<name>, names must be unique)" (toString .name)) }}
+{{- end }}
+{{- $_ := set $seen (toString .name) true }}
+---
+{{ include "..ingress" (dict "ctx" $ "name" (printf "%s-%s" $fullName .name) "ing" .) }}
 {{- end }}

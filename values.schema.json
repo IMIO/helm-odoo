@@ -299,6 +299,23 @@
         "tls": { "type": "array" }
       }
     },
+    "extraIngresses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "className": { "type": "string" },
+          "annotations": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "hosts": { "type": "array" },
+          "tls": { "type": "array" }
+        }
+      }
+    },
     "resources": { "type": "object" },
     "livenessProbe": { "type": "object" },
     "readinessProbe": { "type": "object" },

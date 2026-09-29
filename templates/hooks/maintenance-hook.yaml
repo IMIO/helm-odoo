@@ -1,4 +1,4 @@
-{{- if and (or .Values.odoo.update.enabled .Values.odoo.init.enabled) .Values.odoo.update.maintenancePage .Values.ingress.enabled (not .Values.maintenance.enabled) }}
+{{- if and (or .Values.odoo.update.enabled .Values.odoo.init.enabled) .Values.odoo.update.maintenancePage (or .Values.ingress.enabled .Values.extraIngresses) (not .Values.maintenance.enabled) }}
 {{- $fullName := include "..fullname" . -}}
 ---
 # Maintenance page served during an update or re-init migration. Rendered as a
