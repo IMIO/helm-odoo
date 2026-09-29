@@ -2,10 +2,15 @@
 {{- if .Values.ingress.enabled }}
 {{- include "..ingress" (dict "ctx" $ "name" $fullName "ing" .Values.ingress) }}
 {{- end }}
+{{- $seen := dict }}
 {{- range .Values.extraIngresses }}
 {{- if not .name }}
 {{- fail "extraIngresses: every entry needs a `name` (the Ingress is named <fullname>-<name>)" }}
 {{- end }}
+{{- if hasKey $seen (toString .name) }}
+{{- fail (printf "extraIngresses: duplicate name %q (each entry renders <fullname>-<name>, names must be unique)" (toString .name)) }}
+{{- end }}
+{{- $_ := set $seen (toString .name) true }}
 ---
 {{ include "..ingress" (dict "ctx" $ "name" (printf "%s-%s" $fullName .name) "ing" .) }}
 {{- end }}
