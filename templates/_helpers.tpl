@@ -201,6 +201,20 @@ identity/routing values. Call with the root context.
 {{- end }}
 
 {{/*
+Whether the pre-upgrade maintenance-page hook Deployment (hooks/maintenance-hook.yaml)
+is rendered. Also gates the hook copies of the maintenance ConfigMaps in configmap.yaml
+(<fullname>-default-conf-hook / <fullname>-maintenance-page-hook): the hook pod runs
+before the chart's normal resources exist — ArgoCD maps pre-upgrade to PreSync, so this
+also happens on the very first sync — and must not mount the normal ConfigMaps.
+Call with the root context.
+*/}}
+{{- define "..maintenanceHook.enabled" -}}
+{{- if and (or .Values.odoo.update.enabled .Values.odoo.init.enabled) .Values.odoo.update.maintenancePage (or .Values.ingress.enabled .Values.extraIngresses) (not .Values.maintenance.enabled) -}}
+true
+{{- end -}}
+{{- end }}
+
+{{/*
 data: entries for the S3 ExternalSecret (shared by the normal and the hook copy in
 externalsecrets.yaml — single source of truth). Every entry reads the same Vault key,
 rendered through "tpl" (context $) so it can be derived from other values (e.g.

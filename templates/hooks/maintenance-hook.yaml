@@ -1,4 +1,4 @@
-{{- if and (or .Values.odoo.update.enabled .Values.odoo.init.enabled) .Values.odoo.update.maintenancePage (or .Values.ingress.enabled .Values.extraIngresses) (not .Values.maintenance.enabled) }}
+{{- if include "..maintenanceHook.enabled" . }}
 {{- $fullName := include "..fullname" . -}}
 ---
 # Maintenance page served during an update or re-init migration. Rendered as a
@@ -7,8 +7,10 @@
 # labels the {{ $fullName }}-nginx Service selects on — and exposes a port named
 # `nginx-http`. While the Odoo deployment is scaled to 0, that Service therefore
 # routes to this maintenance pod, so the ingress is never touched (and never
-# needs reverting). Reuses the maintenance nginx config/HTML ConfigMaps that the
-# chart already renders. Only used when maintenance.enabled is false.
+# needs reverting). Mounts the -hook copies of the maintenance nginx config/HTML
+# ConfigMaps (configmap.yaml): this pod runs before the chart's normal resources
+# exist (on ArgoCD, pre-upgrade maps to PreSync, so even on the first sync).
+# Only used when maintenance.enabled is false.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -69,9 +71,9 @@ spec:
             {{- if ne .Values.maintenance.customTemplate.name "" }}
             name: {{ .Values.maintenance.customTemplate.name }}
             {{- else }}
-            name: {{ $fullName }}-maintenance-page
+            name: {{ $fullName }}-maintenance-page-hook
             {{- end }}
         - name: {{ $fullName }}-default-config-volume
           configMap:
-            name: {{ $fullName }}-default-conf
+            name: {{ $fullName }}-default-conf-hook
 {{- end }}
