@@ -51,11 +51,27 @@ data:
       gzip_types text/css text/scss text/plain text/xml application/xml application/json application/javascript;
       gzip on;
     }
+{{- /*
+The maintenance nginx ConfigMaps, rendered once as normal resources (mounted by the
+maintenance Deployment) and, when the maintenance-page hook is enabled, a second time as
+pre-upgrade hook copies suffixed -hook (mounted by hooks/maintenance-hook.yaml, which runs
+before the normal ConfigMaps exist — on ArgoCD even on the first sync). Same body, one source.
+*/}}
+{{- range $hook := ternary (list false true) (list false) (eq (include "..maintenanceHook.enabled" .) "true") }}
+{{- with $ }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "..fullname" . }}-default-conf
+  name: {{ include "..fullname" . }}-default-conf{{ if $hook }}-hook{{ end }}
+{{- if $hook }}
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-15"
+    "helm.sh/hook-delete-policy": before-hook-creation
+{{- end }}
 data:
   default.conf: |-
     # default.conf
@@ -86,7 +102,15 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "..fullname" . }}-maintenance-page
+  name: {{ include "..fullname" . }}-maintenance-page{{ if $hook }}-hook{{ end }}
+{{- if $hook }}
+  labels:
+    {{- include "..labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-15"
+    "helm.sh/hook-delete-policy": before-hook-creation
+{{- end }}
 data:
   maintenance.html: |-
     <!DOCTYPE html>
@@ -380,4 +404,6 @@ data:
     </html>
     
     </html>
+{{- end }}
+{{- end }}
 {{- end }}
