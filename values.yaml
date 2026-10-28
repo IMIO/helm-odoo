@@ -78,6 +78,20 @@ nginx:
       port: 80
     initialDelaySeconds: 5
     periodSeconds: 10
+  # Proxy timeouts of the Odoo HTTP location (`location /`; `/websocket` is not
+  # affected). Values are nginx time strings (`300s`, `10m`). An empty value renders
+  # no directive, so nginx keeps its default of 60s.
+  # Rule: `read` must be >= odoo.limit_time_real, and so must the timeout of every
+  # proxy in front of the pod (ingress, CDN). Otherwise the client gets an error
+  # while Odoo finishes the request and commits it, and the user retries work that
+  # already went through. The defaults (60s here, limit_time_real: 120) do not meet it.
+  proxyTimeouts:
+    # proxy_read_timeout: maximum time between two reads from Odoo. Odoo sends
+    # nothing until the response is ready, so in practice it caps the request duration.
+    read: ""
+    # proxy_send_timeout: maximum time between two writes of the request to Odoo
+    # (e.g. a slow upload).
+    send: ""
 
 # Odoo application configuration
 odoo:

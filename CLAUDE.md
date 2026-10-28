@@ -31,7 +31,7 @@ The `helmlint.sh` script is used as a pre-commit hook and runs `helm lint` on ch
 
 The main deployment (`templates/deployment.yaml`) runs **two containers** in a single pod:
 
-1. **Nginx** — reverse proxy that handles HTTP (port 80→8069) and long-polling WebSocket (port 80→8072), gzip compression, and X-Forwarded headers for SSL termination
+1. **Nginx** — reverse proxy that handles HTTP (port 80→8069) and long-polling WebSocket (port 80→8072), gzip compression, and X-Forwarded headers for SSL termination. `nginx.proxyTimeouts.read`/`.send` render `proxy_read_timeout`/`proxy_send_timeout` in `location /` only, and only when non-empty (empty, the default, keeps nginx's 60 s and a byte-identical `nginx.conf`); `read` must be >= `odoo.limit_time_real`, which the chart documents rather than derives or checks.
 2. **Odoo** — the ERP application (port 8069 HTTP, port 8072 long-polling)
 
 Strategy is always `Recreate` by default (no rolling updates, since Odoo requires a single writer).

@@ -53,7 +53,15 @@
         "containerSecurityContext": { "type": "object" },
         "resources": { "type": "object" },
         "livenessProbe": { "type": "object" },
-        "readinessProbe": { "type": "object" }
+        "readinessProbe": { "type": "object" },
+        "proxyTimeouts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "read": { "type": "string", "pattern": "^$|^[0-9]+(ms|s|m|h)?$" },
+            "send": { "type": "string", "pattern": "^$|^[0-9]+(ms|s|m|h)?$" }
+          }
+        }
       }
     },
     "odoo": {

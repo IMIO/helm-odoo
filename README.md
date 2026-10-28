@@ -200,6 +200,30 @@ without touching the ingress.
 > (`helm.sh/hook: pre-install`, weight below `0`) — see `test/local.yaml`. Production
 > should use an external database (`postgresql.enabled: false` + `externalDatabase.*`).
 
+### Nginx proxy timeouts
+
+```yaml
+nginx:
+  proxyTimeouts:
+    read: ""   # proxy_read_timeout
+    send: ""   # proxy_send_timeout
+```
+
+Set the proxy timeouts of the Odoo HTTP location (`location /`) of the nginx sidecar;
+`/websocket` is not affected. Values are nginx time strings (`300s`, `10m`). An empty
+value (the default) renders no directive, so nginx keeps its default of 60 s.
+
+- `read` sets `proxy_read_timeout`, the maximum time between two reads from Odoo. Odoo
+  sends nothing until the response is ready, so in practice it caps the request duration.
+- `send` sets `proxy_send_timeout`, the maximum time between two writes of the request
+  to Odoo (e.g. a slow upload).
+
+> [!IMPORTANT]
+> `read` must be >= `odoo.limit_time_real`, and so must the timeout of every proxy in
+> front of the pod (ingress, CDN). Otherwise the client gets an error while Odoo finishes
+> the request and commits it, and the user retries work that already went through. The
+> chart defaults (60 s here, `odoo.limit_time_real: 120`) do not meet this rule.
+
 ## Production readiness checklist
 
 The chart ships safe-by-default security settings (non-root containers, dropped
@@ -217,6 +241,9 @@ things still need explicit configuration for production:
   instead of inline `odoo.admin_passwd` / `externalDatabase.password` so credentials
   never live in plaintext values.
 - [ ] **Resources** — set `resources` (Odoo), `nginx.resources` and `cron.resources`.
+- [ ] **Request timeouts** — `odoo.limit_time_real` and `nginx.proxyTimeouts.read` go
+  together: set `read` to at least `limit_time_real`, and the ingress/CDN timeouts too
+  (see [Nginx proxy timeouts](#nginx-proxy-timeouts)).
 - [ ] **securityContext** — defaults assume the official Odoo image (`odoo` user,
   uid 100 / gid 101). If you use a custom image with a different user, override
   `securityContext` /
