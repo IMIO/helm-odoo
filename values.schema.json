@@ -244,6 +244,7 @@
           "additionalProperties": {
             "type": ["object", "null"],
             "additionalProperties": false,
+            "required": ["key", "env"],
             "properties": {
               "key": {
                 "type": "string",
