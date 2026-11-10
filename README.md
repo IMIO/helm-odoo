@@ -163,7 +163,8 @@ externalsecrets:
   removes a secret defined in a shared values file for one instance.
 - When `odoo.init.enabled` or `odoo.update.enabled` is on, a pre-install hook copy
   `<release>-<name>-hook` is rendered for the hook Jobs, like the `odoo.conf` secret.
-- Pick names that don't clash with the chart's own Secrets (`odoo-conf`, `postgresql`…).
+- Names that would clash with the chart's own Secrets are rejected by the values schema:
+  `odoo-conf`, `postgresql`, `postgresql-secret`, and any name ending in `-hook`.
 - `extraSecrets` is ignored when `externalsecrets.enabled` is `false`.
 
 > [!WARNING]

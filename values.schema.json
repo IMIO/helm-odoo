@@ -232,6 +232,15 @@
         "extraSecrets": {
           "type": "object",
           "description": "Additional secrets read from Vault and injected as env vars (envFrom) into the Odoo container, the cron deployment and the init/update hook Jobs. Each entry <name> renders the Secret <fullname>-<name>; an entry set to null is skipped.",
+          "$comment": "Names that would collide with the chart's own Secrets/ExternalSecrets are reserved (false schema): odoo-conf, postgresql, postgresql-secret, and any name ending in -hook (hook copies are <fullname>-<name>-hook).",
+          "properties": {
+            "odoo-conf": false,
+            "postgresql": false,
+            "postgresql-secret": false
+          },
+          "patternProperties": {
+            "-hook$": false
+          },
           "additionalProperties": {
             "type": ["object", "null"],
             "additionalProperties": false,
