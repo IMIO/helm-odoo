@@ -137,36 +137,6 @@ externalsecrets:
   not rendered; leave `postgresqlKey` unset and set only `odooKey` — `db_password`
   falls back to `odooKey` (the pre-2.0.0 behavior).
 
-#### Additional secrets as environment variables
-
-`externalsecrets.extraSecrets` pulls more secrets from Vault (object storage credentials,
-API keys…) and injects them as environment variables (`envFrom`) into the Odoo container,
-the cron deployment and the init/update hook Jobs. Each entry `<name>` reads **one** Vault
-`key` and maps environment variable names to properties of that key:
-
-```yaml
-externalsecrets:
-  extraSecrets:
-    s3:                                             # -> Secret <release>-s3
-      key: "secret/odoo/{{ .Values.instance_id }}/s3"  # tpl-rendered
-      env:                                          # env var -> property in `key`
-        S3_ACCESS_KEY: access_key_id
-        S3_SECRET_KEY: secret_access_key
-        S3_ENDPOINT: endpoint
-        S3_BUCKET_NAME: bucket
-        S3_REGION: region
-```
-
-- `key` is required and rendered through `tpl`, so it can be derived per instance from
-  other values. The `env` property names are not.
-- An `env` entry set to `null` is skipped. A whole secret set to `null` is dropped, which
-  removes a secret defined in a shared values file for one instance.
-- When `odoo.init.enabled` or `odoo.update.enabled` is on, a pre-install hook copy
-  `<release>-<name>-hook` is rendered for the hook Jobs, like the `odoo.conf` secret.
-- Names that would clash with the chart's own Secrets are rejected by the values schema:
-  `odoo-conf`, `postgresql`, `postgresql-secret`, and any name ending in `-hook`.
-- `extraSecrets` is ignored when `externalsecrets.enabled` is `false`.
-
 > [!WARNING]
 > `existingSecret.enabled` and `externalsecrets.enabled` are mutually exclusive.
 > Enabling both will cause `helm install`/`helm upgrade` to fail with an explicit error.
@@ -346,11 +316,10 @@ operator is upgraded.
 
 **2. `externalsecrets.s3` replaced by `externalsecrets.extraSecrets`**
 
-The S3-specific section is replaced by the generic
-[`extraSecrets`](#additional-secrets-as-environment-variables) map. If you set
-`externalsecrets.s3`, move it under `extraSecrets.s3`: `properties` becomes `env`, `enabled`
-goes away (an entry is active when present), and the `S3_*` mapping, which used to be the
-default, must now be written out:
+The S3-specific section is replaced by the generic `extraSecrets` map (documented in
+`values.yaml`). If you set `externalsecrets.s3`, move it under `extraSecrets.s3`: `properties`
+becomes `env`, `enabled` goes away (an entry is active when present), and the `S3_*` mapping,
+which used to be the default, must now be written out:
 
 ```yaml
 # before (3.x)
