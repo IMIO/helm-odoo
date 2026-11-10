@@ -137,6 +137,35 @@ externalsecrets:
   not rendered; leave `postgresqlKey` unset and set only `odooKey` — `db_password`
   falls back to `odooKey` (the pre-2.0.0 behavior).
 
+#### Additional secrets as environment variables
+
+`externalsecrets.extraSecrets` pulls more secrets from Vault (object storage credentials,
+API keys…) and injects them as environment variables (`envFrom`) into the Odoo container,
+the cron deployment and the init/update hook Jobs. Each entry `<name>` reads **one** Vault
+`key` and maps environment variable names to properties of that key:
+
+```yaml
+externalsecrets:
+  extraSecrets:
+    s3:                                             # -> Secret <release>-s3
+      key: "secret/odoo/{{ .Values.instance_id }}/s3"  # tpl-rendered
+      env:                                          # env var -> property in `key`
+        S3_ACCESS_KEY: access_key_id
+        S3_SECRET_KEY: secret_access_key
+        S3_ENDPOINT: endpoint
+        S3_BUCKET_NAME: bucket
+        S3_REGION: region
+```
+
+- `key` is required and rendered through `tpl`, so it can be derived per instance from
+  other values. The `env` property names are not.
+- An `env` entry set to `null` is skipped. A whole secret set to `null` is dropped, which
+  removes a secret defined in a shared values file for one instance.
+- When `odoo.init.enabled` or `odoo.update.enabled` is on, a pre-install hook copy
+  `<release>-<name>-hook` is rendered for the hook Jobs, like the `odoo.conf` secret.
+- Pick names that don't clash with the chart's own Secrets (`odoo-conf`, `postgresql`…).
+- `extraSecrets` is ignored when `externalsecrets.enabled` is `false`.
+
 > [!WARNING]
 > `existingSecret.enabled` and `externalsecrets.enabled` are mutually exclusive.
 > Enabling both will cause `helm install`/`helm upgrade` to fail with an explicit error.
@@ -302,14 +331,50 @@ Please read the official [Helm Contribution Guide](https://github.com/helm/chart
 
 ### To 4.0.0
 
+Both changes only affect `externalsecrets.enabled: true` — **other users are unaffected.**
+
+**1. `external-secrets.io/v1`**
+
 The ExternalSecrets are now rendered as `external-secrets.io/v1` instead of `v1beta1`, because
 External Secrets 2.x no longer serves `v1beta1`. `v1` is served from External Secrets **0.16** on.
-This only affects `externalsecrets.enabled: true` — **other users are unaffected.**
 
 Upgrade the External Secrets operator to 0.16 or later **before** upgrading the chart. On an older
 operator (`v1beta1` only), `helm install`/`upgrade` fails with
 `no matches for kind ExternalSecret in version external-secrets.io/v1`; stay on 3.2.x until the
-operator is upgraded. No values change is needed.
+operator is upgraded.
+
+**2. `externalsecrets.s3` replaced by `externalsecrets.extraSecrets`**
+
+The S3-specific section is replaced by the generic
+[`extraSecrets`](#additional-secrets-as-environment-variables) map. If you set
+`externalsecrets.s3`, move it under `extraSecrets.s3`: `properties` becomes `env`, `enabled`
+goes away (an entry is active when present), and the `S3_*` mapping, which used to be the
+default, must now be written out:
+
+```yaml
+# before (3.x)
+externalsecrets:
+  s3:
+    enabled: true
+    key: "secret/odoo/{{ .Values.instance_id }}/s3"
+
+# after (4.0.0)
+externalsecrets:
+  extraSecrets:
+    s3:
+      key: "secret/odoo/{{ .Values.instance_id }}/s3"
+      env:
+        S3_ACCESS_KEY: access_key_id
+        S3_SECRET_KEY: secret_access_key
+        S3_ENDPOINT: endpoint
+        S3_BUCKET_NAME: bucket
+        S3_REGION: region
+```
+
+The generated resources keep their names (`<release>-s3`, `<release>-s3-hook`), so the
+workloads see the same Secret. `s3.secretName` is gone: the Secret is always
+`<release>-<name>`. A leftover `externalsecrets.s3` makes `helm install`/`upgrade` fail with
+an explicit error rather than silently dropping the credentials.
 
 ### To 3.0.0
 

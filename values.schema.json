@@ -229,17 +229,22 @@
             "odoo": { "type": "object" }
           }
         },
-        "s3": {
+        "extraSecrets": {
           "type": "object",
-          "description": "S3-compatible object storage credentials (Garage / MinIO / AWS) read from a single Vault key and injected as env vars into the Odoo container, the cron deployment and the init/update hook Jobs.",
-          "properties": {
-            "enabled": { "type": "boolean" },
-            "key": { "type": ["string", "null"] },
-            "secretName": { "type": ["string", "null"] },
+          "description": "Additional secrets read from Vault and injected as env vars (envFrom) into the Odoo container, the cron deployment and the init/update hook Jobs. Each entry <name> renders the Secret <fullname>-<name>; an entry set to null is skipped.",
+          "additionalProperties": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
             "properties": {
-              "type": "object",
-              "description": "Environment variable name -> property looked up inside `key`. An entry set to null is skipped.",
-              "additionalProperties": { "type": ["string", "null"] }
+              "key": {
+                "type": "string",
+                "description": "Vault key read by every `env` entry (tpl-rendered). Required."
+              },
+              "env": {
+                "type": "object",
+                "description": "Environment variable name -> property looked up inside `key`. An entry set to null is skipped.",
+                "additionalProperties": { "type": ["string", "null"] }
+              }
             }
           }
         }

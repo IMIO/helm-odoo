@@ -174,33 +174,6 @@ Call with the root context; render under `data:` with `nindent 2`.
 {{- end }}
 
 {{/*
-Is the S3 credentials ExternalSecret active? Returns a non-empty string (truthy for
-`if`) only when the external-secrets backend is on AND externalsecrets.s3.enabled —
-S3 credentials are deliberately not offered by the generated/existingSecret backends.
-`dig` keeps this nil-safe if a consumer replaces the externalsecrets map wholesale.
-Call with the root context.
-*/}}
-{{- define "..s3.enabled" -}}
-{{- if and .Values.externalsecrets.enabled (dig "s3" "enabled" false .Values.externalsecrets) -}}
-true
-{{- end -}}
-{{- end }}
-
-{{/*
-Name of the Secret holding the S3 credentials. Defaults to <fullname>-s3; an explicit
-externalsecrets.s3.secretName is rendered through "tpl" (context $) like the other
-identity/routing values. Call with the root context.
-*/}}
-{{- define "..s3SecretName" -}}
-{{- $override := dig "s3" "secretName" "" .Values.externalsecrets -}}
-{{- if $override -}}
-{{- tpl ($override | toString) $ -}}
-{{- else -}}
-{{- printf "%s-s3" (include "..fullname" .) -}}
-{{- end -}}
-{{- end }}
-
-{{/*
 Whether the pre-upgrade maintenance-page hook Deployment (hooks/maintenance-hook.yaml)
 is rendered. Also gates the hook copies of the maintenance ConfigMaps in configmap.yaml
 (<fullname>-default-conf-hook / <fullname>-maintenance-page-hook): the hook pod runs
@@ -215,43 +188,26 @@ true
 {{- end }}
 
 {{/*
-data: entries for the S3 ExternalSecret (shared by the normal and the hook copy in
-externalsecrets.yaml — single source of truth). Every entry reads the same Vault key,
-rendered through "tpl" (context $) so it can be derived from other values (e.g.
-instance_id); the property names are NOT tpl-rendered. properties is a map
-(env var -> property) so it merges across values files; an entry set to null is
-skipped, and map iteration is key-sorted so the output is deterministic.
-Call with the root context; render under `data:` with `trim | nindent 2` (each
-entry starts with a newline, so the leading one has to go).
-*/}}
-{{- define "..externalsecrets.s3Data" -}}
-{{- $s3 := .Values.externalsecrets.s3 -}}
-{{- $key := tpl (required "externalsecrets.s3.key is required when externalsecrets.s3.enabled is true" $s3.key | toString) $ -}}
-{{- range $env, $property := $s3.properties }}
-{{- if $property }}
-- secretKey: {{ $env }}
-  remoteRef:
-    key: {{ $key }}
-    property: {{ $property }}
-{{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-envFrom list for a workload: the caller's extraEnvFrom plus the S3 credentials Secret
-when externalsecrets.s3 is enabled. The init/update Jobs run at pre-install, before
-the normal Secret exists, so they take the -hook copy (same reasoning as the
-odoo.conf hook secret). Returns an empty string when there is nothing to render, so
-callers can guard the `envFrom:` key on it.
+envFrom list for a workload: the caller's extraEnvFrom plus one secretRef per
+externalsecrets.extraSecrets entry (<fullname>-<name>, key-sorted, null entries
+skipped) when the external-secrets backend is on — the generated/existingSecret
+backends ignore extraSecrets. The init/update Jobs run at pre-install, before the
+normal Secrets exist, so they take the -hook copies (same reasoning as the odoo.conf
+hook secret). Returns an empty string when there is nothing to render, so callers
+can guard the `envFrom:` key on it.
 Call with (dict "ctx" $ "extraEnvFrom" <list> "hook" <bool>).
 */}}
 {{- define "..envFromList" -}}
 {{- $ctx := .ctx -}}
+{{- $suffix := "" -}}
+{{- if .hook -}}{{- $suffix = "-hook" -}}{{- end -}}
 {{- $entries := .extraEnvFrom | default list -}}
-{{- if include "..s3.enabled" $ctx -}}
-{{- $name := include "..s3SecretName" $ctx -}}
-{{- if .hook -}}{{- $name = printf "%s-hook" $name -}}{{- end -}}
-{{- $entries = append $entries (dict "secretRef" (dict "name" $name)) -}}
+{{- if $ctx.Values.externalsecrets.enabled -}}
+{{- range $name, $spec := $ctx.Values.externalsecrets.extraSecrets -}}
+{{- if $spec -}}
+{{- $entries = append $entries (dict "secretRef" (dict "name" (printf "%s-%s%s" (include "..fullname" $ctx) $name $suffix))) -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- if $entries -}}
 {{- toYaml $entries -}}
@@ -261,7 +217,7 @@ Call with (dict "ctx" $ "extraEnvFrom" <list> "hook" <bool>).
 {{/*
 Shared spec for the Odoo init/update hook Job containers.
 Renders image, pull policy, the odoo.conf mount, extraVolumeMounts and
-extraEnv/extraEnvFrom (plus the S3 credentials secret, via ..envFromList) — but
+extraEnv/extraEnvFrom (plus the externalsecrets.extraSecrets, via ..envFromList) — but
 NOT name or command (each Job sets those). Filestore
 (PVC) is intentionally not mounted: the hooks only touch the database, and
 skipping the RWO volume avoids contention with the running Odoo deployment. The
