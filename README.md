@@ -302,14 +302,49 @@ Please read the official [Helm Contribution Guide](https://github.com/helm/chart
 
 ### To 4.0.0
 
+Both changes only affect `externalsecrets.enabled: true` — **other users are unaffected.**
+
+**1. `external-secrets.io/v1`**
+
 The ExternalSecrets are now rendered as `external-secrets.io/v1` instead of `v1beta1`, because
 External Secrets 2.x no longer serves `v1beta1`. `v1` is served from External Secrets **0.16** on.
-This only affects `externalsecrets.enabled: true` — **other users are unaffected.**
 
 Upgrade the External Secrets operator to 0.16 or later **before** upgrading the chart. On an older
 operator (`v1beta1` only), `helm install`/`upgrade` fails with
 `no matches for kind ExternalSecret in version external-secrets.io/v1`; stay on 3.2.x until the
-operator is upgraded. No values change is needed.
+operator is upgraded.
+
+**2. `externalsecrets.s3` replaced by `externalsecrets.extraSecrets`**
+
+The S3-specific section is replaced by the generic `extraSecrets` map (documented in
+`values.yaml`). If you set `externalsecrets.s3`, move it under `extraSecrets.s3`: `properties`
+becomes `env`, `enabled` goes away (an entry is active when present), and the `S3_*` mapping,
+which used to be the default, must now be written out:
+
+```yaml
+# before (3.x)
+externalsecrets:
+  s3:
+    enabled: true
+    key: "secret/odoo/{{ .Values.instance_id }}/s3"
+
+# after (4.0.0)
+externalsecrets:
+  extraSecrets:
+    s3:
+      key: "secret/odoo/{{ .Values.instance_id }}/s3"
+      env:
+        S3_ACCESS_KEY: access_key_id
+        S3_SECRET_KEY: secret_access_key
+        S3_ENDPOINT: endpoint
+        S3_BUCKET_NAME: bucket
+        S3_REGION: region
+```
+
+The generated resources keep their names (`<release>-s3`, `<release>-s3-hook`), so the
+workloads see the same Secret. `s3.secretName` is gone: the Secret is always
+`<release>-<name>`. A leftover `externalsecrets.s3` makes `helm install`/`upgrade` fail with
+an explicit error rather than silently dropping the credentials.
 
 ### To 3.0.0
 
