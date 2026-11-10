@@ -99,7 +99,7 @@ the `odoo.conf` key.
 
 In the `values.yaml` file, set the `externalsecrets.enabled` parameter to `true`.
 
-You need to have the external-secrets.io operator installed in your cluster. See the [external-secrets.io documentation](https://external-secrets.io/latest/) for more information.
+You need to have the external-secrets.io operator **0.16 or later** installed in your cluster (the chart renders `external-secrets.io/v1` ExternalSecrets). See the [external-secrets.io documentation](https://external-secrets.io/latest/) for more information.
 
 Two Vault keys are used: `postgresqlKey` (the PostgreSQL credentials — DB user
 password + superuser) and `odooKey` (Odoo's master `admin_passwd`). Each credential
@@ -299,6 +299,17 @@ Feel free to contribute by making a [pull request](https://github.com/imio/helm-
 Please read the official [Helm Contribution Guide](https://github.com/helm/charts/blob/master/CONTRIBUTING.md) from Helm for more information on how you can contribute to this Chart.
 
 ## Upgrading
+
+### To 4.0.0
+
+The ExternalSecrets are now rendered as `external-secrets.io/v1` instead of `v1beta1`, because
+External Secrets 2.x no longer serves `v1beta1`. `v1` is served from External Secrets **0.16** on.
+This only affects `externalsecrets.enabled: true` — **other users are unaffected.**
+
+Upgrade the External Secrets operator to 0.16 or later **before** upgrading the chart. On an older
+operator (`v1beta1` only), `helm install`/`upgrade` fails with
+`no matches for kind ExternalSecret in version external-secrets.io/v1`; stay on 3.2.x until the
+operator is upgraded. No values change is needed.
 
 ### To 3.0.0
 
